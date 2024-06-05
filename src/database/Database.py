@@ -25,11 +25,17 @@ class Database:
         Initiate a new connection to a MongoDB client, reachable based on the given connection string, and initialize
         class members.
         """
+        self.config = config
         # mongodb://localhost:27017/
         # mongodb+srv://<username>:<password>@<cluster>.qo5xs5j.mongodb.net/?retryWrites=true&w=majority&appName=<app_name>
-        self.config = config
-        self.client = MongoClient(host=self.config.get_db_connection())
-        self.db = self.client[self.config.get_db_name()]
+        self.client = MongoClient("mongodb://localhost:27017/?appName=MongoDB+Compass&directConnection=true&serverSelectionTimeoutMS=2000")
+        print(self.client)
+        self.db = self.client["testtt"]
+        print(self.db)
+
+        config.add_mongodb_version(self.client)
+        log.debug(config.to_json())
+        config.write_to_file()
 
         log.debug("the connection string is: %s", self.config.get_db_connection())
         log.debug("the new MongoClient is: %s", self.client)
@@ -40,6 +46,10 @@ class Database:
         else:
             log.error("The MongoDB client could not be set up properly. The given connection string was %s.", self.config.get_db_connection())
             exit()
+
+        appcoll = self.db["blogcollection"]
+        document = {"user_id": 1, "user": "test"}
+        appcoll.insert_one(document)
 
     def check_server_is_up(self) -> bool:
         """

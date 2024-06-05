@@ -1,5 +1,11 @@
 import configparser
+import getpass
 import os
+import platform
+import sys
+from datetime import datetime
+
+import pymongo
 
 from src.utils.constants import DEFAULT_CONFIG_FILE
 from src.utils.setup_logger import log
@@ -69,35 +75,56 @@ class BetterConfig:
         else:
             log.error("The hospital cannot be set in the config because it is None or empty.")
 
-    def set_python_version(self, python_version):
+    def add_python_version(self):
+        python_version = str(sys.version)
         if is_not_empty(python_version):
             self.set_system_section()
             self.config.set("SYSTEM", "python_version", python_version)
         else:
             log.error("The Python version cannot be set in the config because it is None or empty.")
 
-    def set_execution_date(self, execution_date):
+    def add_pymongo_version(self):
+        pymongo_version = pymongo.version
+        if is_not_empty(pymongo_version):
+            self.set_system_section()
+            self.config.set("SYSTEM", "pymongo_version", pymongo_version)
+        else:
+            log.error("The Pymongo version cannot be set in the config because it is None or empty.")
+
+    def add_mongodb_version(self, client):
+        mongodb_version = client.server_info()["version"]
+        if is_not_empty(mongodb_version):
+            self.set_system_section()
+            self.config.set("SYSTEM", "mongodb_version", mongodb_version)
+        else:
+            log.error("The Pymongo version cannot be set in the config because it is None or empty.")
+
+    def add_execution_date(self):
+        execution_date = str(datetime.now())
         if is_not_empty(execution_date):
             self.set_system_section()
             self.config.set("SYSTEM", "execution_date", execution_date)
         else:
             log.error("The execution date cannot be set in the config because it is None or empty.")
 
-    def set_platform(self, platform):
-        if is_not_empty(platform):
+    def add_platform(self):
+        platform_value = platform.platform()
+        if is_not_empty(platform_value):
             self.set_system_section()
-            self.config.set("SYSTEM", "platform", platform)
+            self.config.set("SYSTEM", "platform", platform_value)
         else:
             log.error("The platform cannot be set in the config because it is None or empty.")
 
-    def set_platform_version(self, platform_version):
+    def add_platform_version(self):
+        platform_version = platform.version()
         if is_not_empty(platform_version):
             self.set_system_section()
             self.config.set("SYSTEM", "platform_version", platform_version)
         else:
             log.error("The plateform version cannot be set in the config because it is None or empty.")
 
-    def set_user(self, user):
+    def add_user(self):
+        user = getpass.getuser()
         if is_not_empty(user):
             self.set_system_section()
             self.config.set("SYSTEM", "user", user)
@@ -177,6 +204,18 @@ class BetterConfig:
         except:
             return ""
 
+    def get_pymongo_version(self):
+        try:
+            return self.config.get("SYSTEM", "pymongo_version")
+        except:
+            return ""
+
+    def get_mongodb_version(self):
+        try:
+            return self.config.get("SYSTEM", "mongodb_version")
+        except:
+            return ""
+
     def get_execution_date(self):
         try:
             return self.config.get("SYSTEM", "execution_date")
@@ -203,6 +242,7 @@ class BetterConfig:
 
     # write config to file
     def write_to_file(self):
+        log.debug(os.path.join(self.get_working_dir_current(), DEFAULT_CONFIG_FILE))
         with open(os.path.join(self.get_working_dir_current(), DEFAULT_CONFIG_FILE), 'w') as f:
             self.config.write(f)
 
@@ -224,6 +264,8 @@ class BetterConfig:
             ],
             "SYSTEM": [
                 { "python_version": self.get_python_version() },
+                { "pymongo_version": self.get_pymongo_version() },
+                { "mongodb_version": self.get_mongodb_version() },
                 { "execution_date": self.get_execution_date() },
                 { "platform": self.get_platform() },
                 { "platform_version": self.get_platform_version() },
