@@ -1,17 +1,14 @@
-import configparser
-import getpass
-import os.path
-import platform
-import sys
 import argparse
-from datetime import datetime
+import os.path
 import shutil
+import sys
+
+sys.path.append('.')  # add the current project to the python path to be runnable in cmd-line
 
 from src.config.BetterConfig import BetterConfig
 from src.etl.ETL import ETL
 from src.utils.HospitalNames import HospitalNames
 from utils.setup_logger import log
-
 
 if __name__ == '__main__':
     # create a config file using properties.ini
@@ -70,11 +67,12 @@ if __name__ == '__main__':
         config.set_data_filepath(args.data_filepath)
 
     # write more information about the current run in the config
-    config.set_python_version(str(sys.version))
-    config.set_execution_date(str(datetime.now()))
-    config.set_platform(platform.platform())
-    config.set_platform_version(platform.version())
-    config.set_user(getpass.getuser())
+    config.add_python_version()
+    config.add_pymongo_version()
+    config.add_execution_date()
+    config.add_platform()
+    config.add_platform_version()
+    config.add_user()
 
     # save the config file in the current working directory
     config.write_to_file()
@@ -88,6 +86,6 @@ if __name__ == '__main__':
     log.info("The data file is located at: %s", config.get_data_filepath())
 
     etl = ETL(config=config)
-    etl.run()
+    # etl.run()
 
     log.info("Goodbye!")
