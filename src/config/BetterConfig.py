@@ -1,6 +1,9 @@
 import configparser
+import os
 
 from src.utils.constants import DEFAULT_CONFIG_FILE
+from src.utils.setup_logger import log
+from src.utils.utils import is_not_empty
 
 
 class BetterConfig:
@@ -11,56 +14,95 @@ class BetterConfig:
     # below, define methods for each parameter in the config
     # keep it up-to-date wrt the config file
     def set_working_dir(self, working_dir):
-        self.set_files_section()
-        self.config.set("FILES", "working_dir", working_dir)
+        if is_not_empty(working_dir):
+            self.set_files_section()
+            self.config.set("FILES", "working_dir", working_dir)
+        else:
+            log.error("The working dir cannot be set in the config because it is None or empty.")
 
     def set_working_dir_current(self, working_dir_current):
-        self.set_files_section()
-        self.config.set("FILES", "working_dir_current", working_dir_current)
+        if is_not_empty(working_dir_current):
+            self.set_files_section()
+            self.config.set("FILES", "working_dir_current", working_dir_current)
+        else:
+            log.error("The current working dir cannot be set in the config because it is None or empty.")
 
     def set_metadata_filepath(self, metadata_filepath):
-        self.set_files_section()
-        self.config.set("FILES", "metadata_filepath", metadata_filepath)
+        if is_not_empty(metadata_filepath):
+            self.set_files_section()
+            self.config.set("FILES", "metadata_filepath", metadata_filepath)
+        else:
+            log.error("The metadata filepath cannot be set in the config because it is None or empty.")
 
     def set_data_filepath(self, data_filepath):
-        self.set_files_section()
-        self.config.set("FILES", "data_filepath", data_filepath)
+        if is_not_empty(data_filepath):
+            self.set_files_section()
+            self.config.set("FILES", "data_filepath", data_filepath)
+        else:
+            log.error("The data filepath cannot be set in the config because it is None or empty.")
 
     def set_db_connection(self, db_connection):
-        self.set_database_section()
-        self.config.set("DATABASE", "connection", db_connection)
+        if is_not_empty(db_connection):
+            self.set_database_section()
+            self.config.set("DATABASE", "connection", db_connection)
+        else:
+            log.error("The db connection string cannot be set in the config because it is None or empty.")
 
     def set_db_name(self, db_name):
-        self.set_database_section()
-        self.config.set("DATABASE", "name", db_name)
+        if is_not_empty(db_name):
+            self.set_database_section()
+            self.config.set("DATABASE", "name", db_name)
+        else:
+            log.error("The db name cannot be set in the config because it is None or empty.")
 
-    def set_db_reset(self, reset):
-        self.set_database_section()
-        self.config.set("DATABASE", "reset", reset)
+    def set_db_drop(self, drop):
+        if is_not_empty(drop):
+            self.set_database_section()
+            self.config.set("DATABASE", "drop", drop)
+        else:
+            log.error("The drop db cannot be set in the config because it is None or empty.")
 
     def set_hospital_name(self, hospital_name):
-        self.set_hospital_section()
-        self.config.set("HOSPITAL", "name", hospital_name)
+        if is_not_empty(hospital_name):
+            self.set_hospital_section()
+            self.config.set("HOSPITAL", "name", hospital_name)
+        else:
+            log.error("The hospital cannot be set in the config because it is None or empty.")
 
     def set_python_version(self, python_version):
-        self.set_system_section()
-        self.config.set("SYSTEM", "python_version", python_version)
+        if is_not_empty(python_version):
+            self.set_system_section()
+            self.config.set("SYSTEM", "python_version", python_version)
+        else:
+            log.error("The Python version cannot be set in the config because it is None or empty.")
 
     def set_execution_date(self, execution_date):
-        self.set_system_section()
-        self.config.set("SYSTEM", "execution_date", execution_date)
+        if is_not_empty(execution_date):
+            self.set_system_section()
+            self.config.set("SYSTEM", "execution_date", execution_date)
+        else:
+            log.error("The execution date cannot be set in the config because it is None or empty.")
 
     def set_platform(self, platform):
-        self.set_system_section()
-        self.config.set("SYSTEM", "platform", platform)
+        if is_not_empty(platform):
+            self.set_system_section()
+            self.config.set("SYSTEM", "platform", platform)
+        else:
+            log.error("The platform cannot be set in the config because it is None or empty.")
 
     def set_platform_version(self, platform_version):
-        self.set_system_section()
-        self.config.set("SYSTEM", "platform_version", platform_version)
+        if is_not_empty(platform_version):
+            self.set_system_section()
+            self.config.set("SYSTEM", "platform_version", platform_version)
+        else:
+            log.error("The plateform version cannot be set in the config because it is None or empty.")
 
     def set_user(self, user):
-        self.set_system_section()
-        self.config.set("SYSTEM", "user", user)
+        if is_not_empty(user):
+            self.set_system_section()
+            self.config.set("SYSTEM", "user", user)
+        else:
+            log.error("The user cannot be set in the config because it is None or empty.")
 
     # set sections
     def set_files_section(self):
@@ -81,45 +123,110 @@ class BetterConfig:
 
     # get config variables
     def get_working_dir(self):
-        return self.config.get("FILES", "working_dir")
+        try:
+            return self.config.get("FILES", "working_dir")
+        except:
+            # if the section or the key is not found, return empty string
+            return ""
 
     def get_working_dir_current(self):
-        return self.config.get("FILES", "working_dir_current")
+        try:
+            return self.config.get("FILES", "working_dir_current")
+        except:
+            return ""
 
     def get_metadata_filepath(self):
-        return self.config.get("FILES", "metadata_filepath")
+        try:
+            return self.config.get("FILES", "metadata_filepath")
+        except:
+            return ""
 
     def get_data_filepath(self):
-        return self.config.get("FILES", "data_filepath")
+        try:
+            return self.config.get("FILES", "data_filepath")
+        except:
+            return ""
 
     def get_db_connection(self):
-        return self.config.get("DATABASE", "connection")
+        try:
+            return self.config.get("DATABASE", "connection")
+        except:
+            return ""
 
     def get_db_name(self):
-        return self.config.get("DATABASE", "name")
+        try:
+            return self.config.get("DATABASE", "name")
+        except:
+            return ""
 
-    def get_db_reset(self):
-        return self.config.get("DATABASE", "reset")
+    def get_db_drop(self) -> bool:
+        try:
+            return True if self.config.get("DATABASE", "drop") == "True" else False
+        except:
+            return False
 
     def get_hospital_name(self):
-        return self.config.get("HOSPITAL", "name")
+        try:
+            return self.config.get("HOSPITAL", "name")
+        except:
+            return ""
 
     def get_python_version(self):
-        return self.config.get("SYSTEM", "python_version")
+        try:
+            return self.config.get("SYSTEM", "python_version")
+        except:
+            return ""
 
     def get_execution_date(self):
-        return self.config.get("SYSTEM", "execution_date")
+        try:
+            return self.config.get("SYSTEM", "execution_date")
+        except:
+            return ""
 
     def get_platform(self):
-        return self.config.get("SYSTEM", "platform")
+        try:
+            return self.config.get("SYSTEM", "platform")
+        except:
+            return ""
 
     def get_platform_version(self):
-        return self.config.get("SYSTEM", "platform_version")
+        try:
+            return self.config.get("SYSTEM", "platform_version")
+        except:
+            return ""
 
     def get_user(self):
-        return self.config.get("SYSTEM", "user")
+        try:
+            return self.config.get("SYSTEM", "user")
+        except:
+            return ""
 
     # write config to file
-    def write_to_file(self, config_filepath):
-        with open(config_filepath, 'w') as f:
+    def write_to_file(self):
+        with open(os.path.join(self.get_working_dir_current(), DEFAULT_CONFIG_FILE), 'w') as f:
             self.config.write(f)
+
+    def to_json(self):
+        return {
+            "FILES": [
+                { "working_dir": self.get_working_dir() },
+                { "working_dir_current": self.get_working_dir_current() },
+                { "metadata_filepath": self.get_metadata_filepath() },
+                { "data_filepath": self.get_data_filepath() }
+            ],
+            "DATABASE": [
+                { "connection": self.get_db_connection() },
+                { "name": self.get_db_name() },
+                { "drop": self.get_db_drop() }
+            ],
+            "HOSPITAL": [
+                { "name": self.get_hospital_name() }
+            ],
+            "SYSTEM": [
+                { "python_version": self.get_python_version() },
+                { "execution_date": self.get_execution_date() },
+                { "platform": self.get_platform() },
+                { "platform_version": self.get_platform_version() },
+                { "user": self.get_user()}
+            ]
+        }

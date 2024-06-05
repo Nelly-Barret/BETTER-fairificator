@@ -18,13 +18,13 @@ if __name__ == '__main__':
     config = BetterConfig()
 
     # the code is supposed to be run like this:
-    # python3 main.py <hospital_name> <path/to/data.csv> <reset_db>
+    # python3 main.py <hospital_name> <path/to/data.csv> <drop_db>
     parser = argparse.ArgumentParser()
     parser.add_argument("--hospital_name", help="Set the hospital name among " + str([hn.value for hn in HospitalNames]), choices={hn.value for hn in HospitalNames})
     parser.add_argument("--metadata_filepath", help="Set the absolute path to the metadata file.")
     parser.add_argument("--data_filepath", help="Set the absolute path to the data file.")
     parser.add_argument("--database_name", help="Set the database name.")
-    parser.add_argument("--reset", help="Whether to reset the database.", choices={"True", "False"})
+    parser.add_argument("--drop", help="Whether to drop the database.", choices={"True", "False"})
     parser.add_argument("--connection", help="The connection string to the mongodb server.")
 
     args = parser.parse_args()
@@ -34,8 +34,9 @@ if __name__ == '__main__':
         config.set_db_connection(args.connection)
     if args.database_name is not None:
         config.set_db_name(args.database_name)
-    if args.reset is not None:
-        config.set_db_reset(args.reset)
+    if args.drop is not None:
+        config.set_db_drop(args.drop)
+    log.debug(config.get_db_drop())
 
     # create a new folder within the tmp dir to store the current execution tmp files and config
     # this folder is named after the DB name (instead of a timestamp, which will create one folder at each run)
@@ -76,14 +77,13 @@ if __name__ == '__main__':
     config.set_user(getpass.getuser())
 
     # save the config file in the current working directory
-    saved_config_file = os.path.join(working_folder, "parameter.ini")
-    config.write_to_file(saved_config_file)
+    config.write_to_file()
 
     # print the main parameters of the current run
     log.info("Selected hospital name: %s", config.get_hospital_name())
     log.info("The database name is %s", config.get_db_name())
     log.info("The connection string is: %s", config.get_db_connection())
-    log.info("The database will be reset: %s", config.get_db_reset())
+    log.info("The database will be dropped: %s", config.get_db_drop())
     log.info("The metadata file is located at: %s", config.get_metadata_filepath())
     log.info("The data file is located at: %s", config.get_data_filepath())
 

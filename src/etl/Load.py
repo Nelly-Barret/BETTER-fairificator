@@ -30,7 +30,9 @@ class Load:
                 # because both Examination and ExaminationRecord start with Examination
                 # the solution is to use a regex
                 with open(os.path.join(self.config.get_working_dir_current(), filename), "r") as json_datafile:
+                    log.debug(os.path.join(self.config.get_working_dir_current(), filename))
                     tuples = json.load(json_datafile)
+                    log.debug(len(tuples))
                     log.debug("Table %s, file %s, loading %s tuples", table_name, filename, len(tuples))
                     self.database.upsert_batch_of_tuples(table_name=table_name,
                                                          unique_variables=unique_variables,

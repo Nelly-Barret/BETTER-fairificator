@@ -31,42 +31,28 @@ def is_not_nan(value) -> bool:
     return not is_float(value) or (is_float(value) and not math.isnan(float(value)))
 
 
-def assert_not_empty(variable, not_empty=True) -> None:
-    if is_not_empty(variable=variable, not_empty=not_empty):
-        pass
-    else:
-        message = "A variable " + variable + " is not supposed to be empty"
-        assert False, message
+def is_not_empty(variable) -> bool:
+    if variable is None:
+        return True
 
-
-def is_not_empty(variable, not_empty=True) -> bool:
     if isinstance(variable, int) or isinstance(variable, float):
         return True
     elif isinstance(variable, str):
         return variable != ""
     elif isinstance(variable, list):
-        if not_empty:
-            return variable is not None and variable != []
-        else:
-            return variable is not None
+        return variable != []
     elif isinstance(variable, dict):
-        if not_empty:
-            return variable is not None and variable != {}
-        else:
-            return variable is not None
+        return variable != {}
     elif isinstance(variable, tuple):
-        if not_empty:
-            return variable is not None and variable != ()
-        else:
-            return variable is not None
+        return variable != ()
     elif isinstance(variable, DataFrame):
         return not variable.empty
     elif isinstance(variable, set):
         return variable != set()
     else:
-        # no clue about the variable typ
-        # thus, we only check whether it is None
-        return variable is not None
+        # no clue about the variable type
+        # thus, we have only checked whether it is None
+        pass
 
 
 def is_in_insensitive(value, list_of_compared):

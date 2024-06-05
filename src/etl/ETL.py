@@ -13,8 +13,14 @@ class ETL:
     def __init__(self, config: BetterConfig):
         self.config = config
         self.database = Database(self.config)
-        if config.get_db_reset():
-            self.database.reset()
+
+        if self.database.check_server_is_up():
+            log.info("The connection is up.")
+        else:
+            log.error("There was a problem while connecting to the MongoDB instance at %s.", self.config.get_db_connection())
+            exit()
+        if config.get_db_drop():
+            self.database.drop_db()
 
         # flags to know what to do during the ETL process
         self.extract_data = True
