@@ -1,4 +1,7 @@
+import math
+
 from datatypes.Identifier import Identifier
+from profiles.Resource import Resource
 from src.config.BetterConfig import BetterConfig
 from src.database.Database import Database
 from src.etl.Extract import Extract
@@ -41,11 +44,30 @@ class Transform:
         self.mapping_disease_to_disease_id = {}  # map the disease names to their Disease IDs
 
     def run(self):
+        self.set_resource_counter_id()
         self.create_hospital(hospital_name=self.config.get_hospital_name())
         self.create_examinations()
         self.create_samples()
         self.create_patients()
         self.create_examination_records()
+
+    def set_resource_counter_id(self) -> None:
+        max_value = Resource.ID_COUNTER
+        for table_name in TableNames:
+            if table_name.value == TableNames.PATIENT.value or table_name.value == TableNames.SAMPLE.value:
+                # pass because Patient and Sample resources have their ID assigned by hospitals, not the FAIRificator
+                pass
+            else:
+                log.debug(table_name)
+                current_max_identifier = self.database.get_max_value(table_name=table_name.value, field="identifier.value")
+                log.debug(current_max_identifier)
+                if current_max_identifier is not None:
+                    if current_max_identifier > max_value:
+                        max_value = current_max_identifier
+                else:
+                    # the table is not created yet (this happens when we start from a fresh new DB, thus we skip this it)
+                    pass
+        log.debug("current max ID is: %s", max_value)
 
     def create_hospital(self, hospital_name: str) -> None:
         log.info("create hospital")
@@ -94,12 +116,12 @@ class Transform:
                         sample_barcode = row["samplebarcode"]
                         if sample_barcode not in created_sample_barcodes:
                             created_sample_barcodes.add(sample_barcode)
-                            sampling = row["sampling"]
-                            sample_quality = row["samplequality"]
-                            time_collected = cast_value(value=row["samtimecollected"])
-                            time_received = cast_value(value=row["samtimereceived"])
-                            too_young = cast_value(value=row["tooyoung"])
-                            bis = cast_value(value=row["bis"])
+                            sampling = row["sampling"] if "sampling" in row else None
+                            sample_quality = row["samplequality"] if "samplequality" in row else None
+                            time_collected = cast_value(value=row["samtimecollected"]) if "samtimecollected" in row else None
+                            time_received = cast_value(value=row["samtimereceived"]) if "samtimereceived" in row else None
+                            too_young = cast_value(value=row["tooyoung"]) if "tooyoung" in row else None
+                            bis = cast_value(value=row["bis"]) if "bis" in row else None
                             new_sample = Sample(sample_barcode, sampling=sampling, quality=sample_quality,
                                                 time_collected=time_collected, time_received=time_received,
                                                 too_young=too_young, bis=bis)
