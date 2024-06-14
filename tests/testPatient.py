@@ -2,7 +2,7 @@ import unittest
 
 from src.profiles.Patient import Patient
 from src.utils.TableNames import TableNames
-from utils.Counter import Counter
+from src.utils.Counter import Counter
 
 
 class TestPatient(unittest.TestCase):
