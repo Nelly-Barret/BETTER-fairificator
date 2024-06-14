@@ -138,7 +138,6 @@ class Database:
             one_tuple["insertedAt"] = timestamp2
             update_stmt = {"$setOnInsert": one_tuple}
             operations.append(pymongo.UpdateOne(filter=filter_dict, update=update_stmt, upsert=True))
-        log.debug(len(operations))
         self.db[table_name].bulk_write(operations)  # TODO Nelly: check whether the upsert has succeeded or not
         log.debug("Table %s: sending a bulk write of %s operations", table_name, len(operations))
 

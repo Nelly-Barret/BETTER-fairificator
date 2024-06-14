@@ -20,6 +20,7 @@ from src.utils.utils import normalize_value, is_in_insensitive, cast_value, is_n
     get_ontology_system, is_equal_insensitive, convert_value
 from src.utils.constants import NONE_VALUE, ID_COLUMNS, PHENOTYPIC_VARIABLES, NO_EXAMINATION_COLUMNS, BATCH_SIZE
 from src.utils.setup_logger import log
+from utils.Counter import Counter
 
 
 class Transform:
@@ -52,7 +53,7 @@ class Transform:
         self.create_examination_records()
 
     def set_resource_counter_id(self) -> None:
-        max_value = Resource.ID_COUNTER
+        max_value = 1
         for table_name in TableNames:
             if table_name.value == TableNames.PATIENT.value or table_name.value == TableNames.SAMPLE.value:
                 # pass because Patient and Sample resources have their ID assigned by hospitals, not the FAIRificator
@@ -67,7 +68,8 @@ class Transform:
                 else:
                     # the table is not created yet (this happens when we start from a fresh new DB, thus we skip this it)
                     pass
-        log.debug("current max ID is: %s", max_value)
+        # Resource.set_counter(max_value + 1)  # start 1 after the current counter to avoid resources with the same ID
+        Counter().set(max_value)
 
     def create_hospital(self, hospital_name: str) -> None:
         log.info("create hospital")
@@ -134,7 +136,6 @@ class Transform:
                                 # no need to load Sample instances because they are referenced using their ID,
                                 # which was provided by the hospital (thus is known by the dataset)
             self.database.write_in_file(data_array=self.samples, table_name=TableNames.SAMPLE.value, count=count)
-            log.info("Nb of samples: %s", len(self.samples))
 
     def create_examination_records(self):
         log.info("create examination records")
@@ -196,8 +197,6 @@ class Transform:
                         pass
 
         self.database.write_in_file(data_array=self.examination_records, table_name=TableNames.EXAMINATION_RECORD.value, count=count)
-        log.info("Nb of patients: %s", len(self.patients))
-        log.info("Nb of examination records: %s", len(self.examination_records))
 
     def create_patients(self):
         log.info("create patients")
