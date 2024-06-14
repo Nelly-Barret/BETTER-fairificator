@@ -29,6 +29,7 @@ class Transform:
         self.load = load
         self.database = database
         self.config = config
+        self.counter = Counter()
 
         # to record objects that will be further inserted in the database
         self.hospitals = []
@@ -69,11 +70,11 @@ class Transform:
                     pass
         # Resource.set_counter(max_value + 1)  # start 1 after the current counter to avoid resources with the same ID
         log.debug("will set the counter with %s", max_value)
-        Counter(max_value)
+        self.counter.set(max_value)
 
     def create_hospital(self, hospital_name: str) -> None:
         log.info("create hospital")
-        new_hospital = Hospital(id_value=NONE_VALUE, name=hospital_name)
+        new_hospital = Hospital(id_value=NONE_VALUE, name=hospital_name, counter=self.counter)
         self.hospitals.append(new_hospital)
         self.database.write_in_file(data_array=self.hospitals, table_name=TableNames.HOSPITAL.value, count=1)
 
@@ -87,7 +88,7 @@ class Transform:
                 cc = self.create_codeable_concept_from_column(column_name=lower_column_name)
                 if cc is not None and cc.codings != []:
                     category = self.determine_examination_category(column_name=lower_column_name)
-                    new_examination = Examination(id_value=NONE_VALUE, code=cc, category=category, permitted_data_types=[])
+                    new_examination = Examination(id_value=NONE_VALUE, code=cc, category=category, permitted_data_types=[], counter=self.counter)
                     # log.info("adding a new examination about %s: %s", cc.text, new_examination)
                     self.examinations.append(new_examination)
                     if len(self.examinations) >= BATCH_SIZE:
@@ -126,7 +127,7 @@ class Transform:
                             bis = cast_value(value=row["bis"]) if "bis" in row else None
                             new_sample = Sample(sample_barcode, sampling=sampling, quality=sample_quality,
                                                 time_collected=time_collected, time_received=time_received,
-                                                too_young=too_young, bis=bis)
+                                                too_young=too_young, bis=bis, counter=self.counter)
                             created_sample_barcodes.add(sample_barcode)
                             self.samples.append(new_sample)
                             if len(self.samples) >= BATCH_SIZE:
@@ -183,7 +184,8 @@ class Transform:
                         fairified_value = self.fairify_value(column_name=column_name, value=value)
                         new_examination_record = ExaminationRecord(id_value=NONE_VALUE, examination_ref=examination_ref,
                                                                    subject_ref=subject_ref, hospital_ref=hospital_ref,
-                                                                   sample_ref=sample_ref, value=fairified_value)
+                                                                   sample_ref=sample_ref, value=fairified_value,
+                                                                   counter=self.counter)
                         self.examination_records.append(new_examination_record)
                         if len(self.examination_records) >= BATCH_SIZE:
                             self.database.write_in_file(data_array=self.examination_records, table_name=TableNames.EXAMINATION_RECORD.value, count=count)
@@ -206,7 +208,7 @@ class Transform:
             patient_id = row[ID_COLUMNS[HospitalNames.IT_BUZZI_UC1.value][TableNames.PATIENT.value]]
             if patient_id not in created_patient_ids:
                 # the patient does not exist yet, we will create it
-                new_patient = Patient(id_value=str(patient_id))
+                new_patient = Patient(id_value=str(patient_id), counter=self.counter)
                 created_patient_ids.add(patient_id)
                 self.patients.append(new_patient)
                 if len(self.patients) >= BATCH_SIZE:

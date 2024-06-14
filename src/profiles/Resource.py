@@ -8,7 +8,7 @@ from src.utils.Counter import Counter
 
 
 class Resource:
-    def __init__(self, id_value: str, resource_type: str):
+    def __init__(self, id_value: str, resource_type: str, counter: Counter):
         """
 
         :param id_value:
@@ -21,7 +21,7 @@ class Resource:
                 raise ValueError("Patient and Sample instances should have an ID.")
             else:
                 # We assign an ID to the new resource
-                self.identifier = Identifier(id_value=str(Counter().id), resource_type=resource_type)
+                self.identifier = Identifier(id_value=str(counter.increment()), resource_type=resource_type)
                 log.debug("New %s resource created with ID: %s", resource_type, self.identifier.to_json())
         else:
             # This case covers when we retrieve resources from the DB, and we reconstruct them in-memory:
