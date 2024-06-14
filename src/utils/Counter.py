@@ -1,4 +1,4 @@
-from utils.setup_logger import log
+from src.utils.setup_logger import log
 
 
 class Counter:

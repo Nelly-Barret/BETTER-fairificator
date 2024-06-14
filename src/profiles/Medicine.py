@@ -1,6 +1,6 @@
-from datatypes.CodeableConcept import CodeableConcept
-from profiles.Resource import Resource
-from utils.TableNames import TableNames
+from src.datatypes.CodeableConcept import CodeableConcept
+from src.profiles.Resource import Resource
+from src.utils.TableNames import TableNames
 
 
 class Medicine(Resource):

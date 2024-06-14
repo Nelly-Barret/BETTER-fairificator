@@ -1,7 +1,6 @@
 import math
 
-from datatypes.Identifier import Identifier
-from profiles.Resource import Resource
+from src.datatypes.Identifier import Identifier
 from src.config.BetterConfig import BetterConfig
 from src.database.Database import Database
 from src.etl.Extract import Extract
@@ -20,7 +19,7 @@ from src.utils.utils import normalize_value, is_in_insensitive, cast_value, is_n
     get_ontology_system, is_equal_insensitive, convert_value
 from src.utils.constants import NONE_VALUE, ID_COLUMNS, PHENOTYPIC_VARIABLES, NO_EXAMINATION_COLUMNS, BATCH_SIZE
 from src.utils.setup_logger import log
-from utils.Counter import Counter
+from src.utils.Counter import Counter
 
 
 class Transform:

@@ -1,6 +1,6 @@
 import unittest
 
-from utils.Counter import Counter
+from src.utils.Counter import Counter
 
 
 class TestCounter(unittest.TestCase):

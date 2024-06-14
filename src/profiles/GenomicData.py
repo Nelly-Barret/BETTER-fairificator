@@ -1,7 +1,7 @@
-from datatypes.Reference import Reference
-from profiles.Analysis import Analysis
-from profiles.Resource import Resource
-from utils.TableNames import TableNames
+from src.datatypes.Reference import Reference
+from src.profiles.Analysis import Analysis
+from src.profiles.Resource import Resource
+from src.utils.TableNames import TableNames
 
 
 class GenomicData(Resource):

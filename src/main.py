@@ -11,8 +11,8 @@ sys.path.append('.')  # add the current project to the python path to be runnabl
 from src.config.BetterConfig import BetterConfig
 from src.etl.ETL import ETL
 from src.utils.HospitalNames import HospitalNames
-from utils.constants import DEFAULT_DB_NAME
-from utils.setup_logger import log
+from src.utils.constants import DEFAULT_DB_NAME
+from src.utils.setup_logger import log
 
 
 if __name__ == '__main__':
