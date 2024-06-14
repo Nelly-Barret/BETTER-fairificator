@@ -1,9 +1,8 @@
 from src.profiles.Hospital import Hospital
 from src.utils.TableNames import TableNames
 from src.utils.constants import NONE_VALUE
+from src.utils.Counter import Counter
 import unittest
-
-from utils.Counter import Counter
 
 
 class TestHospital(unittest.TestCase):
