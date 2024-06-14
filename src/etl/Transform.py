@@ -69,7 +69,8 @@ class Transform:
                     # the table is not created yet (this happens when we start from a fresh new DB, thus we skip this it)
                     pass
         # Resource.set_counter(max_value + 1)  # start 1 after the current counter to avoid resources with the same ID
-        Counter().set(max_value)
+        log.debug("will set the counter with %s", max_value)
+        Counter(max_value)
 
     def create_hospital(self, hospital_name: str) -> None:
         log.info("create hospital")
