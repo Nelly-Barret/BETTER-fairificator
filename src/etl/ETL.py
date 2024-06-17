@@ -7,9 +7,9 @@ from src.utils.setup_logger import log
 
 
 class ETL:
-    def __init__(self, config: BetterConfig):
+    def __init__(self, config: BetterConfig, database: Database):
         self.config = config
-        self.database = Database(config=self.config)
+        self.database = database
 
         if self.database.check_server_is_up():
             log.info("The MongoDB client could be set up properly.")

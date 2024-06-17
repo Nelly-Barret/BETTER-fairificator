@@ -20,7 +20,8 @@ class BetterConfig:
     WORKING_DIR_KEY = "working_dir"
     WORKING_DIR_CURRENT_KEY = "working_key_current"
     METADATA_FILEPATH_KEY = "metadata_filepath"
-    DATA_FILEPATH_KEY = "data_filepath"
+    DATA_FILEPATHS_KEY = "data_filepaths"
+    CURRENT_FILEPATH_KEY = "current_filepath"
     CONNECTION_KEY = "connection"
     NAME_KEY = "name"
     DROP_KEY = "drop"
@@ -50,9 +51,13 @@ class BetterConfig:
         self.set_files_section()
         self.config.set(BetterConfig.FILES_SECTION, BetterConfig.METADATA_FILEPATH_KEY, metadata_filepath)
 
-    def set_data_filepath(self, data_filepath):
+    def set_current_filepath(self, current_filepath: str):
         self.set_files_section()
-        self.config.set(BetterConfig.FILES_SECTION, BetterConfig.DATA_FILEPATH_KEY, data_filepath)
+        self.config.set(BetterConfig.FILES_SECTION, BetterConfig.CURRENT_FILEPATH_KEY, current_filepath)
+
+    def set_data_filepaths(self, data_filepaths: str):
+        self.set_files_section()
+        self.config.set(BetterConfig.FILES_SECTION, BetterConfig.DATA_FILEPATHS_KEY, data_filepaths)
 
     def set_db_connection(self, db_connection):
         self.set_database_section()
@@ -61,10 +66,6 @@ class BetterConfig:
     def set_db_name(self, db_name):
         self.set_database_section()
         self.config.set(BetterConfig.DB_SECTION, BetterConfig.NAME_KEY, db_name)
-        log.debug(db_name)
-        log.debug(self.config.has_option("DATABASE", "name"))
-        log.debug(self.config.get("DATABASE", "name"))
-        log.debug(self.to_json())
 
     def set_db_drop(self, drop):
         self.set_database_section()
@@ -134,11 +135,18 @@ class BetterConfig:
         except:
             return ""
 
-    def get_data_filepath(self):
+    def get_current_filepath(self):
         try:
-            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.DATA_FILEPATH_KEY)
+            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.CURRENT_FILEPATH_KEY)
         except:
             return ""
+
+    def get_data_filepaths(self) -> list:
+        try:
+            # return the list of files instead of the stringified list of files
+            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.DATA_FILEPATHS_KEY).split(",")
+        except:
+            return []
 
     def get_db_connection(self):
         try:
@@ -211,7 +219,8 @@ class BetterConfig:
             BetterConfig.FILES_SECTION + "/" + BetterConfig.WORKING_DIR_KEY: self.get_working_dir(),
             BetterConfig.FILES_SECTION + "/" + BetterConfig.WORKING_DIR_CURRENT_KEY: self.get_working_dir_current(),
             BetterConfig.FILES_SECTION + "/" + BetterConfig.METADATA_FILEPATH_KEY: self.get_metadata_filepath(),
-            BetterConfig.FILES_SECTION + "/" + BetterConfig.DATA_FILEPATH_KEY: self.get_data_filepath(),
+            BetterConfig.FILES_SECTION + "/" + BetterConfig.DATA_FILEPATHS_KEY: self.get_data_filepaths(),
+            BetterConfig.FILES_SECTION + "/" + BetterConfig.CURRENT_FILEPATH_KEY: self.get_current_filepath(),
             BetterConfig.DB_SECTION + "/" + BetterConfig.CONNECTION_KEY: self.get_db_connection(),
             BetterConfig.DB_SECTION + "/" + BetterConfig.NAME_KEY: self.get_db_name(),
             BetterConfig.DB_SECTION + "/" + BetterConfig.DROP_KEY: self.get_db_drop(),

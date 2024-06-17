@@ -6,6 +6,8 @@ import argparse
 import shutil
 import traceback
 
+from database.Database import Database
+
 sys.path.append('.')  # add the current project to the python path to be runnable in cmd-line
 
 from src.config.BetterConfig import BetterConfig
@@ -66,12 +68,19 @@ if __name__ == '__main__':
     if args.data_filepath is None:
         log.error("No data file path has been provided. Please provide one.")
         exit()
-    elif not os.path.isfile(args.data_filepath):
-        log.error("The specified data file does not seem to exist. Please check the path.")
-        exit()
     else:
+        # if there is a single file, this will put that file in a list
+        # otherwise, when the user provides several files, it will split them in the array
+        log.debug(args.data_filepath)
+        split_files = args.data_filepath.split(",")
+        log.debug(split_files)
+        for current_file in split_files:
+            if not os.path.isfile(current_file):
+                log.error("The specified data file '%s' does not seem to exist. Please check the path.", current_file)
+                exit()
         # we do not copy the data in our working dir because it is too large to be copied
-        config.set_data_filepath(args.data_filepath)
+        config.set_data_filepaths(args.data_filepath)  # file 1,file 2, ...,file N
+        log.debug(config.get_data_filepaths())
 
     # write more information about the current run in the config
     config.add_python_version()
@@ -90,17 +99,31 @@ if __name__ == '__main__':
     log.info("The connection string is: %s", config.get_db_connection())
     log.info("The database will be dropped: %s", config.get_db_drop())
     log.info("The metadata file is located at: %s", config.get_metadata_filepath())
-    log.info("The data file is located at: %s", config.get_data_filepath())
-
+    log.info("The data file is located at: %s", config.get_data_filepaths())
     log.debug(config.to_json())
 
-    try:
-        etl = ETL(config=config)
-        etl.run()
-        log.info("Goodbye!")
-    except Exception as error:
-        traceback.print_exc()  # print the stack trace
-        log.error("An error occurred during the ETL. Please check the complete log. ")
+    database = Database(config=config)
+
+    error_occurred = False
+    all_datapaths = config.get_data_filepaths()
+    for one_file in all_datapaths:
+        log.debug(one_file)
+        # set the current path in the config because the ETL only knows files declared in the config
+        # we need to add twice .. because the data files are never copied to the working dir (but remain in their place)
+        config.set_current_filepath(os.path.join(config.get_working_dir_current(), "..", "..", one_file))
+        log.info("--- Starting to ingest file '%s'", config.get_data_filepaths())
+        try:
+            etl = ETL(config=config, database=database)
+            etl.run()
+        except Exception as error:
+            traceback.print_exc()  # print the stack trace
+            log.error("An error occurred during the ETL. Please check the complete log. ")
+            error_occurred = True
+
+    if not error_occurred:
+        log.info("All given files have been processed without error. Goodbye!")
+    else:
+        log.error("The script stopped at some point due to errors. Please check the complete log.")
 
     # everything has been written in the log file,
     # so we move it (the file with the latest timestamp) to its respective database folder in working-dir
