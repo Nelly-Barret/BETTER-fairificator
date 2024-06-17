@@ -2,12 +2,13 @@ import configparser
 import getpass
 import os.path
 import platform
+import shutil
 
 from datetime import datetime
 
 import pymongo
 
-from src.utils.constants import DEFAULT_CONFIG_FILE
+from src.utils.constants import DEFAULT_CONFIG_FILE, DEFAULT_DB_NAME
 from src.utils.setup_logger import log
 
 
@@ -32,9 +33,85 @@ class BetterConfig:
     PLATFORM_VERSION_KEY = "platform_version"
     USER_KEY = "user"
 
-    def __init__(self):
+    def __init__(self, args):
         self.config = configparser.ConfigParser()
         self.config.read(DEFAULT_CONFIG_FILE)
+        log.debug(self.to_json())
+        self.args = args
+
+        # set the Config internals with the user parameters (taken as Python main arguments)
+        self.set_from_parameters()
+
+    def set_from_parameters(self):
+        if self.args.hospital_name is not None:
+            self.set_hospital_name(self.args.hospital_name)
+        if self.args.connection is not None:
+            self.set_db_connection(self.args.connection)
+        if self.args.database_name is not None and self.args.database_name != "":
+            self.set_db_name(self.args.database_name)
+        else:
+            log.info("There was no database name provided. Using the default one: %s", DEFAULT_DB_NAME)
+            self.set_db_name(DEFAULT_DB_NAME)
+        if self.args.drop is not None:
+            self.set_db_drop(self.args.drop)
+
+        # create a new folder within the tmp dir to store the current execution tmp files and config
+        # this folder is named after the DB name (instead of a timestamp, which will create one folder at each run)
+        working_folder = os.path.join(self.get_working_dir(), self.get_db_name())
+        self.set_working_dir_current(working_folder)
+        if os.path.exists(working_folder):
+            shutil.rmtree(working_folder)  # empty the current working directory if it exists
+        os.makedirs(working_folder)  # create the working folder (labelled with the DB name)
+
+        # get metadata and data filepaths
+        if self.args.metadata_filepath is None:
+            log.error("No metadata file path has been provided. Please provide one.")
+            exit()
+        elif not os.path.isfile(self.args.metadata_filepath):
+            log.error("The specified metadata file does not seem to exist. Please check the path.")
+            exit()
+        else:
+            metadata_filename = "metadata-" + self.args.hospital_name + ".csv"
+            metadata_filepath = os.path.join(self.get_working_dir_current(), metadata_filename)
+            shutil.copyfile(self.args.metadata_filepath, metadata_filepath)
+            self.set_metadata_filepath(metadata_filepath)
+
+        if self.args.data_filepath is None:
+            log.error("No data file path has been provided. Please provide one.")
+            exit()
+        else:
+            # if there is a single file, this will put that file in a list
+            # otherwise, when the user provides several files, it will split them in the array
+            log.debug(self.args.data_filepath)
+            split_files = self.args.data_filepath.split(",")
+            log.debug(split_files)
+            for current_file in split_files:
+                if not os.path.isfile(current_file):
+                    log.error("The specified data file '%s' does not seem to exist. Please check the path.",
+                              current_file)
+                    exit()
+            # we do not copy the data in our working dir because it is too large to be copied
+            self.set_data_filepaths(self.args.data_filepath)  # file 1,file 2, ...,file N
+            log.debug(self.get_data_filepaths())
+
+        # write more information about the current run in the config
+        self.add_python_version()
+        self.add_pymongo_version()
+        self.add_execution_date()
+        self.add_platform()
+        self.add_platform_version()
+        self.add_user()
+
+        # save the config file in the current working directory
+        self.write_to_file()
+
+        # print the main parameters of the current run
+        log.info("Selected hospital name: %s", self.get_hospital_name())
+        log.info("The database name is %s", self.get_db_name())
+        log.info("The connection string is: %s", self.get_db_connection())
+        log.info("The database will be dropped: %s", self.get_db_drop())
+        log.info("The metadata file is located at: %s", self.get_metadata_filepath())
+        log.info("The data file is located at: %s", self.get_data_filepaths())
         log.debug(self.to_json())
 
     # below, define methods for each parameter in the config
