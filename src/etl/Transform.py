@@ -15,7 +15,7 @@ from src.profiles.Sample import Sample
 from src.utils.ExaminationCategory import ExaminationCategory
 from src.utils.HospitalNames import HospitalNames
 from src.utils.TableNames import TableNames
-from src.utils.utils import normalize_value, is_in_insensitive, cast_value, is_not_nan, \
+from src.utils.utils import normalize_value, is_in_insensitive, is_not_nan, \
     get_ontology_system, is_equal_insensitive, convert_value
 from src.utils.constants import NONE_VALUE, ID_COLUMNS, PHENOTYPIC_VARIABLES, NO_EXAMINATION_COLUMNS, BATCH_SIZE
 from src.utils.setup_logger import log
@@ -118,12 +118,13 @@ class Transform:
                         sample_barcode = row["samplebarcode"]
                         if sample_barcode not in created_sample_barcodes:
                             created_sample_barcodes.add(sample_barcode)
+                            # TODO Nelly: write a for loop based on SAMPLE_VARIABLES, instead of writing it by hand?
                             sampling = row["sampling"] if "sampling" in row else None
                             sample_quality = row["samplequality"] if "samplequality" in row else None
-                            time_collected = cast_value(value=row["samtimecollected"]) if "samtimecollected" in row else None
-                            time_received = cast_value(value=row["samtimereceived"]) if "samtimereceived" in row else None
-                            too_young = cast_value(value=row["tooyoung"]) if "tooyoung" in row else None
-                            bis = cast_value(value=row["bis"]) if "bis" in row else None
+                            time_collected = convert_value(value=row["samtimecollected"]) if "samtimecollected" in row else None
+                            time_received = convert_value(value=row["samtimereceived"]) if "samtimereceived" in row else None
+                            too_young = convert_value(value=row["tooyoung"]) if "tooyoung" in row else None
+                            bis = convert_value(value=row["bis"]) if "bis" in row else None
                             new_sample = Sample(sample_barcode, sampling=sampling, quality=sample_quality,
                                                 time_collected=time_collected, time_received=time_received,
                                                 too_young=too_young, bis=bis, counter=self.counter)

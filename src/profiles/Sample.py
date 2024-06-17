@@ -1,10 +1,12 @@
+from datetime import datetime
+
 from src.profiles.Resource import Resource
 from src.utils.TableNames import TableNames
 from src.utils.Counter import Counter
 
 
 class Sample(Resource):
-    def __init__(self, id_value: str, quality: str, sampling: str, time_collected: str, time_received: str,
+    def __init__(self, id_value: str, quality: str, sampling: str, time_collected: datetime, time_received: datetime,
                  too_young: bool, bis: bool, counter: Counter):
         # set up the resource ID
         # this corresponds to the SampleBarcode in Buzzi data
@@ -27,8 +29,8 @@ class Sample(Resource):
             "resourceType": self.get_type(),
             "quality": self.quality,
             "sampling": self.sampling,
-            "timeCollected": self.time_collected,
-            "timeReceived": self.time_collected,
+            "timeCollected": { "$date": self.time_collected.isoformat() },
+            "timeReceived": { "$date": self.time_collected.isoformat() },
             "tooYoung": self.too_young,
             "BIS": self.bis
         }

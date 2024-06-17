@@ -1,9 +1,10 @@
+from datetime import datetime
+
 from src.datatypes.CodeableConcept import CodeableConcept
 from src.datatypes.Coding import Coding
 from src.datatypes.Reference import Reference
 from src.profiles.Resource import Resource
 from src.utils.TableNames import TableNames
-from src.utils.constants import NONE_VALUE
 from src.utils.Counter import Counter
 
 
@@ -37,6 +38,8 @@ class ExaminationRecord(Resource):
         if isinstance(self.value, CodeableConcept) or isinstance(self.value, Coding) or isinstance(self.value, Reference):
             # complex type, we need to expand it with .to_json()
             expanded_value = self.value.to_json()
+        elif isinstance(self.value, datetime):
+            expanded_value = { "$date": self.value.isoformat() }
         else:
             # primitive type, no need to expand it
             expanded_value = self.value

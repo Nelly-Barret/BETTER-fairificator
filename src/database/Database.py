@@ -1,5 +1,6 @@
 import json
 import os
+import traceback
 from datetime import datetime, timedelta
 from random import randrange
 
@@ -96,8 +97,8 @@ class Database:
         # (i) when the instance already exists in the DB, we get the resource after its update (but the update does nothing with the help of $setOnInsert)
         # (ii) when the instance does not exist yet, we insert it and the returned value is the inserted document
         # as in both (i) and (ii) we get a Document, we need to use a timestamp in order to know whether this was an update or an insert
-        timestamp = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-        one_tuple["insertedAt"] = timestamp
+        timestamp = datetime.now()
+        one_tuple["insertedAt"] = { "$date": timestamp.isoformat() }
         if UpsertPolicy.DO_NOTHING:
             # insert the document if it does not exist
             # otherwise, do nothing
@@ -134,8 +135,7 @@ class Database:
                 rand_delta = randrange(0, 10)
             used_rands.append(rand_delta)
             timestamp = datetime.now() + timedelta(days=rand_delta)
-            timestamp2 = timestamp.strftime("%m/%d/%Y, %H:%M:%S")
-            one_tuple["insertedAt"] = timestamp2
+            one_tuple["insertedAt"] = { "$date": timestamp.isoformat() }
             update_stmt = {"$setOnInsert": one_tuple}
             operations.append(pymongo.UpdateOne(filter=filter_dict, update=update_stmt, upsert=True))
         self.db[table_name].bulk_write(operations)  # TODO Nelly: check whether the upsert has succeeded or not
@@ -172,7 +172,12 @@ class Database:
         if len(data_array) > 0:
             filename = os.path.join(self.config.get_working_dir_current(), table_name + str(count) + ".json")
             with open(filename, "w") as data_file:
-                json.dump([resource.to_json() for resource in data_array], data_file)
+                try:
+                    json.dump([resource.to_json() for resource in data_array], data_file)
+                except Exception:
+                    traceback.print_exc()
+                    log.error("The %s instances could not be converted to JSON. Stopping here.", table_name)
+                    exit()
         else:
             log.info("No data when writing file %s/%s", table_name, count)
 
