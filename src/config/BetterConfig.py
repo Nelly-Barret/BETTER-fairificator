@@ -33,14 +33,21 @@ class BetterConfig:
     PLATFORM_VERSION_KEY = "platform_version"
     USER_KEY = "user"
 
-    def __init__(self, args):
+    def __init__(self, args=None):
         self.config = configparser.ConfigParser()
         self.config.read(DEFAULT_CONFIG_FILE)
         log.debug(self.to_json())
-        self.args = args
 
-        # set the Config internals with the user parameters (taken as Python main arguments)
-        self.set_from_parameters()
+        if args is not None:
+            # the user gave parameters
+            # set the Config internals with the user parameters (taken as Python main arguments)
+            self.args = args
+            self.set_from_parameters()
+        else:
+            # the user did not provide any parameters
+            # or we are in test mode
+            # in any case, we have read the default config, so we are good
+            pass
 
     def set_from_parameters(self):
         if self.args.hospital_name is not None:
