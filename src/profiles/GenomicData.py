@@ -5,7 +5,7 @@ from src.profiles.Analysis import Analysis
 from src.profiles.Resource import Resource
 from src.utils.TableNames import TableNames
 from src.utils.Counter import Counter
-from utils.utils import get_mongodb_date_from_datetime
+from src.utils.utils import get_mongodb_date_from_datetime
 
 
 class GenomicData(Resource):

@@ -1,3 +1,4 @@
+import locale
 import math
 import re
 from datetime import datetime
@@ -8,9 +9,6 @@ from pandas import DataFrame
 
 from src.datatypes.CodeableConcept import CodeableConcept
 from src.utils.Ontologies import Ontologies
-import locale
-
-from utils.setup_logger import log
 
 
 # ASSERTIONS
