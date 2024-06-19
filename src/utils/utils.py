@@ -1,5 +1,6 @@
 import math
 import re
+from datetime import datetime
 from typing import Any
 
 from dateutil.parser import parse
@@ -8,6 +9,8 @@ from pandas import DataFrame
 from src.datatypes.CodeableConcept import CodeableConcept
 from src.utils.Ontologies import Ontologies
 import locale
+
+from utils.setup_logger import log
 
 
 # ASSERTIONS
@@ -116,33 +119,32 @@ def get_category_from_json(category_as_json: dict):
 
 # NORMALIZE DATA
 
-def get_int_from_str(str_value) -> int:
+def get_int_from_str(str_value):
     try:
         return int(str_value)
     except ValueError:
-        pass  # this was not an int value
+        return None  # this was not an int value
 
 
-def get_float_from_str(str_value) -> float:
+def get_float_from_str(str_value):
     try:
-        return float(str_value)
+        return locale.atof(str_value)
     except ValueError:
-        pass  # this was not a float value
+        return None  # this was not a float value
 
 
-def get_datetime_from_str(str_value):
+def get_datetime_from_str(str_value) -> datetime:
     try:
         datetime_value = parse(str_value)
         # %Y-%m-%d %H:%M:%S is the format used by default by parse (the output is always of this form)
-        if ":" in str_value:
-            # there was a time in the value, let's return a datetime value
-            return datetime_value
-        else:
-            # the value was only a date, so we return only a date too
-            return datetime_value.date()
+        return datetime_value
     except ValueError:
         # this was not a datetime value, and we signal it with None
         return None
+
+
+def get_mongodb_date_from_datetime(current_datetime: datetime) -> dict:
+    return { "$date": current_datetime.strftime('%Y-%m-%dT%H:%M:%SZ') }
 
 
 def normalize_value(input_string: str) -> str:
@@ -151,30 +153,29 @@ def normalize_value(input_string: str) -> str:
 
 def convert_value(value):
     if isinstance(value, str):
-        try:
-            # try to cast as float
-            new_value = locale.atof(value)
-            return new_value
-        except Exception:
-            # try to cast as date
-            datetime_value = get_datetime_from_str(value)
-            if datetime_value is not None:
-                return datetime_value
-            else:
+        # try to convert as boolean
+        if value == "True":
+            return True
+        elif value == "False":
+            return False
 
-                # try to convert as boolean
-                if value == "True":
-                    return True
-                elif value == "False":
-                    return False
-                # TODO Nelly: elif: 0 or 1 and this is expected to be a boolean column
-                else:
-                    try:
-                        # finally, try to cast as integer
-                        new_value = int(value)
-                        return new_value
-                    except Exception:
-                        return value
+        # try to cast as float
+        float_value = get_float_from_str(value)
+        if float_value is not None:
+            return float_value
+
+        # try to cast as date
+        datetime_value = get_datetime_from_str(value)
+        if datetime_value is not None:
+            return datetime_value
+
+        # finally, try to cast as integer
+        int_value = get_int_from_str(value)
+        if int_value is not None:
+            return int_value
+
+        # no cast could be applied, we return the value as is
+        return value
     else:
         # this is already cast to the right type, nothing more to do
         return value

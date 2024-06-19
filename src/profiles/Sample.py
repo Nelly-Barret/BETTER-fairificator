@@ -3,6 +3,8 @@ from datetime import datetime
 from src.profiles.Resource import Resource
 from src.utils.TableNames import TableNames
 from src.utils.Counter import Counter
+from src.utils.setup_logger import log
+from src.utils.utils import get_mongodb_date_from_datetime
 
 
 class Sample(Resource):
@@ -29,9 +31,10 @@ class Sample(Resource):
             "resourceType": self.get_type(),
             "quality": self.quality,
             "sampling": self.sampling,
-            "timeCollected": { "$date": self.time_collected.isoformat() },
-            "timeReceived": { "$date": self.time_collected.isoformat() },
+            "timeCollected": get_mongodb_date_from_datetime(self.time_collected),
+            "timeReceived": get_mongodb_date_from_datetime(self.time_collected),
             "tooYoung": self.too_young,
-            "BIS": self.bis
+            "BIS": self.bis,
+            "createdAt": get_mongodb_date_from_datetime(datetime.now())
         }
         return json_sample
