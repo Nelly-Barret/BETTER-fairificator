@@ -1,11 +1,23 @@
+import logging
 import unittest
 
 from src.profiles.Patient import Patient
 from src.utils.TableNames import TableNames
 from src.utils.Counter import Counter
+from src.utils.setup_logger import log
 
 
 class TestPatient(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        new_handlers = []
+        for h in log.handlers:
+            if not isinstance(h, logging.StreamHandler):
+                new_handlers.append(h)
+            h.close()
+        log.handlers = new_handlers
+        log.info("Set up class for testing Counter class.")
+
     def test_constructor(self):
         """
         Test whether the Patient constructor correctly assign IDs and the resource type.

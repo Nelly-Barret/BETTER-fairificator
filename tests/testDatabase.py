@@ -1,11 +1,24 @@
+import logging
 import unittest
 
 from src.config.BetterConfig import BetterConfig
 from src.database.Database import Database
 from src.utils.constants import TEST_DB_NAME, TEST_TABLE_NAME
+from src.utils.setup_logger import log
 
 
 class TestDatabase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        new_handlers = []
+        for h in log.handlers:
+            if not isinstance(h, logging.StreamHandler):
+                new_handlers.append(h)
+            h.close()
+        log.handlers = new_handlers
+        log.info("Set up class for testing Counter class.")
+
     def test_check_server_is_up(self):
         config = BetterConfig()
 

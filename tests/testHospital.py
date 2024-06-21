@@ -1,11 +1,26 @@
+import logging
+
 from src.profiles.Hospital import Hospital
 from src.utils.TableNames import TableNames
 from src.utils.constants import NONE_VALUE
 from src.utils.Counter import Counter
 import unittest
 
+from src.utils.setup_logger import log
+
 
 class TestHospital(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        new_handlers = []
+        for h in log.handlers:
+            if not isinstance(h, logging.StreamHandler):
+                new_handlers.append(h)
+            h.close()
+        log.handlers = new_handlers
+        log.info("Set up class for testing Counter class.")
+
     def test_constructor(self):
         counter = Counter()
         hospital1 = Hospital(id_value="123", name="MyHospital", counter=counter)
