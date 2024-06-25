@@ -2,6 +2,7 @@ import locale
 import os
 import traceback
 
+from database.Execution import Execution
 from src.config.BetterConfig import BetterConfig
 from src.database.Database import Database
 from src.etl.Extract import Extract
@@ -10,6 +11,8 @@ from src.etl.Transform import Transform
 from src.utils.setup_logger import log
 from src.utils.HospitalNames import HospitalNames
 from src.utils.constants import LOCALES
+from utils.Counter import Counter
+from utils.TableNames import TableNames
 
 
 class ETL:
@@ -77,6 +80,14 @@ class ETL:
                 traceback.print_exc()  # print the stack trace
                 log.error("An error occurred during the ETL. Please check the complete log. ")
                 error_occurred = True
+
+        # saving the execution parameters in the database before closing the execution
+        log.info("Saving execution parameters in the database.")
+        # we ensure to have an existing counter, otherwise we create a new one and set it to the max current id
+        # (in Execution class)
+        counter_transform = self.transform.counter if self.transform is not None else None
+        execution = Execution(config=self.config, database=self.database, counter=counter_transform)
+        execution.store_in_database()
 
         if not error_occurred:
             log.info("All given files have been processed without error. Goodbye!")
