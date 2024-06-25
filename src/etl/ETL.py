@@ -2,7 +2,7 @@ import locale
 import os
 import traceback
 
-from database.Execution import Execution
+from src.database.Execution import Execution
 from src.config.BetterConfig import BetterConfig
 from src.database.Database import Database
 from src.etl.Extract import Extract
@@ -11,8 +11,6 @@ from src.etl.Transform import Transform
 from src.utils.setup_logger import log
 from src.utils.HospitalNames import HospitalNames
 from src.utils.constants import LOCALES
-from utils.Counter import Counter
-from utils.TableNames import TableNames
 
 
 class ETL:
