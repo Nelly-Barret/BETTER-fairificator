@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from src.datatypes.CodeableConcept import CodeableConcept
-from src.profiles.Resource import Resource
-from src.utils.TableNames import TableNames
-from src.utils.utils import is_not_nan, get_mongodb_date_from_datetime
-from src.utils.Counter import Counter
+from utils.MetadataColumns import MetadataColumns
+from datatypes.CodeableConcept import CodeableConcept
+from profiles.Resource import Resource
+from utils.TableNames import TableNames
+from utils.utils import is_not_nan, get_mongodb_date_from_datetime
+from utils.Counter import Counter
 
 
 class Examination(Resource):
@@ -33,10 +34,10 @@ class Examination(Resource):
 
     @classmethod
     def get_label(cls, row) -> str:
-        display = row["name"]
-        if is_not_nan(row["description"]):
+        display = row[MetadataColumns.COLUMN_NAME.value]
+        if is_not_nan(row[MetadataColumns.SIGNIFICATION_EN.value]):
             # by default the display is the variable name
             # if we also have a description, we append it to the display
             # e.g., "BTD (human biotinidase activity)"
-            display = display + " (" + str(row["description"]) + ")"
+            display = display + " (" + str(row[MetadataColumns.SIGNIFICATION_EN.value]) + ")"
         return display

@@ -2,24 +2,25 @@ from datetime import datetime
 
 from pandas import DataFrame
 
-from src.datatypes.Identifier import Identifier
-from src.config.BetterConfig import BetterConfig
-from src.database.Database import Database
-from src.datatypes.CodeableConcept import CodeableConcept
-from src.datatypes.Reference import Reference
-from src.profiles.Examination import Examination
-from src.profiles.ExaminationRecord import ExaminationRecord
-from src.profiles.Hospital import Hospital
-from src.profiles.Patient import Patient
-from src.profiles.Sample import Sample
-from src.utils.ExaminationCategory import ExaminationCategory
-from src.utils.HospitalNames import HospitalNames
-from src.utils.TableNames import TableNames
-from src.utils.utils import normalize_value, is_in_insensitive, is_not_nan, \
-    get_ontology_system, is_equal_insensitive, convert_value
-from src.utils.constants import NONE_VALUE, ID_COLUMNS, PHENOTYPIC_VARIABLES, NO_EXAMINATION_COLUMNS, BATCH_SIZE
-from src.utils.setup_logger import log
-from src.utils.Counter import Counter
+from config.BetterConfig import BetterConfig
+from database.Database import Database
+from datatypes.CodeableConcept import CodeableConcept
+from datatypes.Identifier import Identifier
+from datatypes.Reference import Reference
+from profiles.Examination import Examination
+from profiles.ExaminationRecord import ExaminationRecord
+from profiles.Hospital import Hospital
+from profiles.Patient import Patient
+from profiles.Sample import Sample
+from utils.Counter import Counter
+from utils.ExaminationCategory import ExaminationCategory
+from utils.HospitalNames import HospitalNames
+from utils.MetadataColumns import MetadataColumns
+from utils.TableNames import TableNames
+from utils.constants import NONE_VALUE, NO_EXAMINATION_COLUMNS, BATCH_SIZE, ID_COLUMNS, PHENOTYPIC_VARIABLES
+from utils.setup_logger import log
+from utils.utils import is_in_insensitive, is_not_nan, convert_value, get_ontology_system, normalize_value, \
+    is_equal_insensitive
 
 
 class Transform:
@@ -60,23 +61,7 @@ class Transform:
         self.create_examination_records()
 
     def set_resource_counter_id(self) -> None:
-        max_value = -1
-        for table_name in TableNames:
-            if table_name.value == TableNames.PATIENT.value or table_name.value == TableNames.SAMPLE.value:
-                # pass because Patient and Sample resources have their ID assigned by hospitals, not the FAIRificator
-                pass
-            else:
-                current_max_identifier = self.database.get_max_value(table_name=table_name.value, field="identifier.value")
-                if current_max_identifier is not None:
-                    if current_max_identifier > max_value:
-                        max_value = current_max_identifier
-                else:
-                    # the table is not created yet (this happens when we start from a fresh new DB, thus we skip this it)
-                    pass
-        # Resource.set_counter(max_value + 1)  # start 1 after the current counter to avoid resources with the same ID
-        if max_value > -1:
-            log.debug("will set the counter with %s", max_value)
-            self.counter.set(new_value=max_value)
+        self.counter.set_with_database(database=self.database)
 
     def create_hospital(self, hospital_name: str) -> None:
         log.info("create hospital instance in memory")
@@ -231,7 +216,7 @@ class Transform:
             cc_tuple = self.create_code_from_metadata(row=row, ontology_column="secondary_ontology", code_column="secondary_ontology_code")
             if cc_tuple is not None:
                 cc.add_coding(triple=cc_tuple)
-            cc.text = row["name"]  # the column name (display inside codings will have name+description)
+            cc.text = row[MetadataColumns.COLUMN_NAME.value]  # the column name (display inside codings will have name+description)
             return cc
         elif len(rows) == 0:
             # log.warn("Did not find the column '%s' in the metadata", column_name)

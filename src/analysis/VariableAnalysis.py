@@ -1,7 +1,8 @@
 import json
 
-from src.utils.utils import is_not_nan
-from src.utils.setup_logger import log
+from utils.MetadataColumns import MetadataColumns
+from utils.utils import is_not_nan
+from utils.setup_logger import log
 
 
 class VariableAnalysis:
@@ -39,9 +40,9 @@ class VariableAnalysis:
     def compute_nb_categorical_features_without_mapping(self):
         self.nb_categorical_features_without_mapping = 0
         for index, metadata_variable in self.metadata.iterrows():
-            if metadata_variable["vartype"] == "category":
-                if not is_not_nan(metadata_variable["JSON_values"]):
-                    log.debug(metadata_variable["name"])
+            if metadata_variable[MetadataColumns.VAR_TYPE.value] == "category":
+                if not is_not_nan(metadata_variable[MetadataColumns.JSON_VALUES.value]):
+                    log.debug(metadata_variable[MetadataColumns.COLUMN_NAME.value])
                     self.nb_categorical_features_without_mapping += 1
                 self.total_nb_categorical_features += 1
         self.ratio_categorical_feature_with_no_mapping = self.nb_categorical_features_without_mapping / self.total_nb_categorical_features

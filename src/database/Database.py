@@ -10,13 +10,13 @@ from pymongo import MongoClient
 from pymongo.command_cursor import CommandCursor
 from pymongo.cursor import Cursor
 
-from src.config.BetterConfig import BetterConfig
-from src.utils.TableNames import TableNames
-from src.utils.utils import mongodb_project_one, mongodb_group_by, mongodb_match, mongodb_sort, \
-    mongodb_max, mongodb_unwind, mongodb_min
-from src.utils.constants import BATCH_SIZE
-from src.utils.setup_logger import log
-from src.utils.UpsertPolicy import UpsertPolicy
+from config.BetterConfig import BetterConfig
+from utils.TableNames import TableNames
+from utils.UpsertPolicy import UpsertPolicy
+from utils.constants import BATCH_SIZE
+from utils.setup_logger import log
+from utils.utils import mongodb_match, mongodb_unwind, mongodb_project_one, mongodb_min, mongodb_max, mongodb_group_by, \
+    mongodb_sort
 
 
 class Database:
@@ -45,6 +45,11 @@ class Database:
         log.debug("the connection string is: %s", self.config.get_db_connection())
         log.debug("the new MongoClient is: %s", self.client)
         log.debug("the database is: %s", self.db)
+
+        if self.check_server_is_up():
+            log.info("The MongoDB client could be set up properly.")
+        else:
+            log.error("The MongoDB client could not be set up properly. The given connection string was %s.", self.config.get_db_connection())
 
     def check_server_is_up(self) -> bool:
         """
@@ -290,6 +295,22 @@ class Database:
         ]
         # .collation({"locale": "en_US", "numericOrdering": "true"})
         return self.db[TableNames.EXAMINATION_RECORD.value].aggregate(pipeline)
+
+    def get_resource_counter_id(self) -> int:
+        max_value = -1
+        for table_name in TableNames:
+            if table_name.value == TableNames.PATIENT.value or table_name.value == TableNames.SAMPLE.value:
+                # pass because Patient and Sample resources have their ID assigned by hospitals, not the FAIRificator
+                pass
+            else:
+                current_max_identifier = self.get_max_value(table_name=table_name.value, field="identifier.value")
+                if current_max_identifier is not None:
+                    if current_max_identifier > max_value:
+                        max_value = current_max_identifier
+                else:
+                    # the table is not created yet (this happens when we start from a fresh new DB, thus we skip this it)
+                    pass
+        return max_value
 
     def __str__(self) -> str:
         return "Database " + self.config.get_db_name()
