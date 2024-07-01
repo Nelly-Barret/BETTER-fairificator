@@ -15,16 +15,14 @@ class Reference:
         self.reference = resource_identifier
         self.type = resource_type
 
-    def to_json(self):
-        json_reference = {
+    def to_json(self) -> dict:
+        return {
             "reference": self.reference,
             "type": self.type
         }
 
-        return json_reference
-
-    def __str__(self):
+    def __str__(self) -> str:
         return json.dumps(self.to_json())
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return json.dumps(self.to_json())

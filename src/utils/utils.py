@@ -1,21 +1,18 @@
-import json
+import locale
 import math
-import os.path
-from datetime import time
+import re
+from datetime import datetime
 from typing import Any
-import time
 
 from dateutil.parser import parse
 from pandas import DataFrame
 
-from src.fhirDatatypes.CodeableConcept import CodeableConcept
-from src.utils.Ontologies import Ontologies
-from src.utils.setup_logger import log
+from utils.Ontologies import Ontologies
 
 
 # ASSERTIONS
 
-def is_float(value) -> bool:
+def is_float(value: Any) -> bool:
     if isinstance(value, str) or isinstance(value, int) or isinstance(value, float):
         try:
             float(value)
@@ -27,35 +24,32 @@ def is_float(value) -> bool:
         return False
 
 
-def is_not_nan(value) -> bool:
-    return not is_float(value) or (is_float(value) and not math.isnan(float(value)))
+def is_not_nan(value: Any) -> bool:
+    return not is_float(value=value) or (is_float(value=value) and not math.isnan(float(value)))
 
 
-def is_not_empty(variable) -> bool:
-    if variable is None:
-        return True
-
+def is_not_empty(variable: Any) -> bool:
     if isinstance(variable, int) or isinstance(variable, float):
         return True
     elif isinstance(variable, str):
         return variable != ""
     elif isinstance(variable, list):
-        return variable != []
+        return variable is not None and variable != []
     elif isinstance(variable, dict):
-        return variable != {}
+        return variable is not None and variable != {}
     elif isinstance(variable, tuple):
-        return variable != ()
+        return variable is not None and variable != ()
     elif isinstance(variable, DataFrame):
         return not variable.empty
     elif isinstance(variable, set):
         return variable != set()
     else:
-        # no clue about the variable type
-        # thus, we have only checked whether it is None
-        pass
+        # no clue about the variable typ
+        # thus, we only check whether it is None
+        return variable is not None
 
 
-def is_in_insensitive(value, list_of_compared):
+def is_in_insensitive(value: Any, list_of_compared: list[Any]) -> bool:
     if not isinstance(value, str):
         return value in list_of_compared
     else:
@@ -65,38 +59,18 @@ def is_in_insensitive(value, list_of_compared):
         return False
 
 
-def is_equal_insensitive(value, compared):
+def is_equal_insensitive(value: str | float, compared: str | float) -> bool:
     if not isinstance(value, str):
         return value == compared
     else:
         return value.casefold() == compared.casefold()
 
 
-# BUILDING URLs and IDs
-
-
-# def build_url(base: str, element_id: str) -> str:
-#     return base + "/" + str(element_id)
-
-def create_identifier(id_value: str, resource_type: str) -> str:
-    if not isinstance(id_value, str):
-        # in case the dataframe has converted IDs to integers
-        id_value = str(id_value)
-
-    if "/" in id_value:
-        # the provided id_value is already of the form type/id, thus we do not need to append the resource type
-        # this happens when we build (instance) resources from the existing data in the database
-        # the stored if is already of the form type/id
-        return id_value
-    else:
-        return resource_type + "/" + id_value
-
-
 # GET PREDEFINED VALUES
 
 
 def get_ontology_system(ontology: str) -> str:
-    ontology = normalize_value(ontology)
+    ontology = normalize_value(input_string=ontology)
 
     for existing_ontology in Ontologies:
         if existing_ontology.value["name"] == ontology:
@@ -110,91 +84,107 @@ def get_ontology_resource_uri(ontology_system: str, resource_code: str) -> str:
     return ontology_system + "/" + resource_code
 
 
-def get_codeable_concept_from_json(codeable_concept_as_json: dict):
-    cc = CodeableConcept()
-    cc.text = codeable_concept_as_json["text"]
-    for coding_as_json in codeable_concept_as_json["coding"]:
-        cc.add_coding((coding_as_json["system"], coding_as_json["code"], codeable_concept_as_json["display"]))
-    return cc
-
-
-def get_category_from_json(category_as_json: dict):
-    # the category is either PHENOTYPIC or CLINICAL, thus no loop for the codings is necessary
-    return CodeableConcept((category_as_json["system"], category_as_json["code"], category_as_json["display"]))
-
-
 # NORMALIZE DATA
 
-def get_int_from_str(str_value) -> int:
+def get_int_from_str(str_value: str):
     try:
         return int(str_value)
     except ValueError:
-        pass  # this was not an int value
+        return None  # this was not an int value
 
 
-def get_float_from_str(str_value) -> float:
+def get_float_from_str(str_value: str):
     try:
-        return float(str_value)
+        return locale.atof(str_value)
     except ValueError:
-        pass  # this was not a float value
+        return None  # this was not a float value
 
 
-def get_datetime_from_str(str_value) -> str:
+def get_datetime_from_str(str_value: str) -> datetime:
     try:
         datetime_value = parse(str_value)
         # %Y-%m-%d %H:%M:%S is the format used by default by parse (the output is always of this form)
-        if ":" in str_value:
-            # there was a time in the value, let's return a datetime value
-            return str(datetime_value)
-        else:
-            # the value was only a date, so we return only a date too
-            return str(datetime_value.date())
+        return datetime_value
     except ValueError:
-        pass  # this was not a datetime value
+        # this was not a datetime value, and we signal it with None
+        return None
 
 
-def cast_value(value):
-    if isinstance(value, str):
-        # trying to cast to something if possible
-        # first, try to cast as int
-        int_value = get_int_from_str(value)
-        if int_value is not None:
-            return int_value
-
-        # try to cast as float
-        float_value = get_float_from_str(value)
-        if float_value is not None:
-            return float_value
-
-        # try to cast as datetime (first, because it is more restrictive than simple date)
-        datetime_value = get_datetime_from_str(value)
-        if datetime_value is not None:
-            return datetime_value
-    else:
-        # log.info("%s is not a string, so no further cast is possible", value)
-        return value
+def get_mongodb_date_from_datetime(current_datetime: datetime) -> dict:
+    return { "$date": current_datetime.strftime('%Y-%m-%dT%H:%M:%SZ') }
 
 
 def normalize_value(input_string: str) -> str:
     return input_string.upper().strip().replace(" ", "").replace("_", "")
 
 
+def convert_value(value: str | float | bool | datetime) -> str | float | bool | datetime:
+    if isinstance(value, str):
+        # try to convert as boolean
+        if value == "True":
+            return True
+        elif value == "False":
+            return False
+
+        # try to cast as float
+        float_value = get_float_from_str(str_value=value)
+        if float_value is not None:
+            return float_value
+
+        # try to cast as date
+        datetime_value = get_datetime_from_str(str_value=value)
+        if datetime_value is not None:
+            return datetime_value
+
+        # finally, try to cast as integer
+        int_value = get_int_from_str(str_value=value)
+        if int_value is not None:
+            return int_value
+
+        # no cast could be applied, we return the value as is
+        return value
+    else:
+        # this is already cast to the right type, nothing more to do
+        return value
+
+
 # MONGODB UTILS
 
-def mongodb_match(field: str, value: Any) -> dict:
-    return {
-        "$match": {
-            field: value
+def mongodb_match(field: str, value: Any, is_regex: bool) -> dict:
+    if is_regex:
+        # this is a match with a regex (in value)
+        return {
+            "$match": {
+                field: re.compile(value)
+            }
         }
-    }
+    else:
+        # this is a match with a "hard-coded" value (in value)
+        return {
+            "$match": {
+                field: value
+            }
+        }
 
 
-def mongodb_project_one(field: str) -> dict:
-    return {
-        "$project": {
-            field: 1
+def mongodb_project_one(field: str, split_delimiter: str) -> dict:
+    if split_delimiter is None:
+        return {
+            "$project": {
+                field: 1
+            }
         }
-    }
+    else:
+        # also split the projected value
+        return {
+            "$project": {
+                field: {
+                    # we prepend a $ to the fild so that MongoDB understand that
+                    # it needs to parse the actual value of the filed
+                    "$split": ["$"+field, split_delimiter]
+                }
+            }
+        }
 
 
 def mongodb_sort(field: str, sort_order: int) -> dict:
@@ -222,27 +212,43 @@ def mongodb_group_by(group_key: Any, group_by_name: str, operator: str, field) -
     }
 
 
+def mongodb_unwind(field: str) -> dict:
+    return {
+        "$unwind": "$" + field
+    }
+
+
+def mongodb_max(field: str) -> dict:
+    return {
+        "$group": {
+            "_id": field,
+            "max": {
+                "$max": {
+                    "$toLong": "$"+field  # to make the field interpreted
+                }
+            }
+        }
+    }
+
+
+def mongodb_min(field: str) -> dict:
+    return {
+        "$group": {
+            "_id": field,
+            "min": {
+                "$min": {
+                    "$toLong": "$"+field  # to make the field interpreted
+                }
+            }
+        }
+    }
+
 # LIST AND DICT CONVERSIONS
 
 
-def get_values_from_json_values(json_values):
+def get_values_from_json_values(json_values: dict) -> list[dict]:
     values = []
     for current_dict in json_values:
-        if is_not_nan(current_dict) and is_not_empty(current_dict):
+        if is_not_nan(value=current_dict) and is_not_empty(variable=current_dict):
             values.append(current_dict["value"])
     return values
-
-
-def convert_value(value):
-    try:
-        return float(value)
-    except ValueError:
-        try:
-            return int(value)
-        except ValueError:
-            return value
-
-
-# COMPUTE CONSTANTS
-def current_milli_time():
-    return int(time.time())

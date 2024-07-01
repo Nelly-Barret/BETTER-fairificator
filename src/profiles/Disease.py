@@ -1,10 +1,14 @@
-from src.fhirDatatypes.CodeableConcept import CodeableConcept
-from src.profiles.Resource import Resource
-from src.utils.TableNames import TableNames
+from datetime import datetime
+
+from datatypes.CodeableConcept import CodeableConcept
+from profiles.Resource import Resource
+from utils.Counter import Counter
+from utils.TableNames import TableNames
+from utils.utils import get_mongodb_date_from_datetime
 
 
 class Disease(Resource):
-    def __init__(self, id_value: str, status: str, code: CodeableConcept):
+    def __init__(self, id_value: str, status: str, code: CodeableConcept, counter: Counter):
         """
         Create a new Disease instance.
         This is different from a DiseaseRecord:
@@ -15,20 +19,18 @@ class Disease(Resource):
         :param code: the set of ontology terms (LOINC, ICD, ...) referring to that disease.
         """
         # set up the resource ID
-        super().__init__(id_value=id_value, resource_type=self.get_type())
+        super().__init__(id_value=id_value, resource_type=self.get_type(), counter=counter)
 
         # set up the resource attributes
-        self.status = status
         self.code = code
 
-    def get_type(self):
+    def get_type(self) -> str:
         return TableNames.DISEASE.value
 
-    def to_json(self):
-        json_disease = {
-            "identifier": self.identifier,
+    def to_json(self) -> dict:
+        return {
+            "identifier": self.identifier.to_json(),
             "resourceType": self.get_type(),
-            "status": self.status,
-            "code": self.code.to_json()
+            "code": self.code.to_json(),
+            "createdAt": get_mongodb_date_from_datetime(current_datetime=datetime.now())
         }
-        return json_disease

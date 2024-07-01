@@ -1,274 +1,421 @@
 import configparser
 import getpass
 import os
+import os.path
 import platform
-import sys
+import shutil
+from argparse import Namespace
 from datetime import datetime
 
 import pymongo
 
-from src.utils.constants import DEFAULT_CONFIG_FILE
-from src.utils.setup_logger import log
-from src.utils.utils import is_not_empty
+from utils.constants import DEFAULT_CONFIG_FILE
+from utils.setup_logger import log
+from utils.utils import is_not_empty
 
 
 class BetterConfig:
+    FILES_SECTION = "FILES"
+    DB_SECTION = "DATABASE"
+    HOSPITAL_SECTION = "HOSPITAL"
+    SYSTEM_SECTION = "SYSTEM"
+    RUN_SECTION = "RUN"
+
+    # FILES section
+    WORKING_DIR_KEY = "working_dir"
+    WORKING_DIR_CURRENT_KEY = "working_key_current"
+    METADATA_FILEPATH_KEY = "metadata_filepath"
+    DATA_FILEPATHS_KEY = "data_filepaths"
+    CURRENT_FILEPATH_KEY = "current_filepath"
+    # DATABASE section
+    CONNECTION_KEY = "connection"
+    DROP_KEY = "drop"
+    NO_INDEX_KEY = "no_index"
+    # DATABASE and HOSPITAL sections
+    NAME_KEY = "name"
+    # SYSTEM section
+    PYTHON_VERSION_KEY = "python_version"
+    PYMONGO_VERSION_KEY = "pymongo_version"
+    EXECUTION_KEY = "execution_date"
+    PLATFORM_KEY = "platform"
+    PLATFORM_VERSION_KEY = "platform_version"
+    USER_KEY = "user"
+    USE_EN_LOCALE_KEY = "locale"
+    # RUN section
+    EXTRACT_KEY = "extract"
+    TRANSFORM_KEY = "transform"
+    LOAD_KEY = "load"
+    ANALYSIS_KEY = "analysis"
+
     def __init__(self):
         self.config = configparser.ConfigParser()
         self.config.read(DEFAULT_CONFIG_FILE)
+        log.debug(self.to_json())
+
+    def set_from_parameters(self, args: Namespace) -> None:
+        # the user gave parameters
+        # set the Config internals with the user parameters (taken as Python main arguments)
+        # otherwise (when no parameters are provided), the default config is used
+        self.set_hospital_name(hospital_name=args.hospital_name)
+        self.set_db_connection(db_connection=args.connection)
+        self.set_db_name(db_name=args.database_name)
+        self.set_db_drop(drop=args.drop)
+        self.set_no_index(no_index=args.no_index)
+
+        # create a new folder within the tmp dir to store the current execution tmp files and config
+        # this folder is named after the DB name (instead of a timestamp, which will create one folder at each run)
+        working_folder = os.path.join(self.get_working_dir(), self.get_db_name())
+        self.set_working_dir_current(working_dir_current=working_folder)
+        if os.path.exists(working_folder):
+            shutil.rmtree(working_folder)  # empty the current working directory if it exists
+        os.makedirs(working_folder)  # create the working folder (labelled with the DB name)
+
+        # get metadata and data filepaths
+        if not os.path.isfile(args.metadata_filepath):
+            log.error("The specified metadata file does not seem to exist. Please check the path.")
+            exit()
+        else:
+            metadata_filename = "metadata-" + args.hospital_name + ".csv"
+            metadata_filepath = os.path.join(self.get_working_dir_current(), metadata_filename)
+            shutil.copyfile(args.metadata_filepath, metadata_filepath)
+            self.set_metadata_filepath(metadata_filepath=metadata_filepath)
+
+        # if there is a single file, this will put that file in a list
+        # otherwise, when the user provides several files, it will split them in the array
+        log.debug(args.data_filepath)
+        split_files = args.data_filepath.split(",")
+        log.debug(split_files)
+        for current_file in split_files:
+            if not os.path.isfile(current_file):
+                log.error("The specified data file '%s' does not seem to exist. Please check the path.",
+                          current_file)
+                exit()
+        # we do not copy the data in our working dir because it is too large to be copied
+        self.set_data_filepaths(data_filepaths=args.data_filepath)  # file 1,file 2, ...,file N
+        log.debug(self.get_data_filepaths())
+
+        # write more information about the current run in the config
+        self.add_python_version()
+        self.add_pymongo_version()
+        self.add_execution_date()
+        self.add_platform()
+        self.add_platform_version()
+        self.add_user()
+        self.set_use_en_locale(use_en_locale=args.use_en_locale)
+
+        # and about the user parameters
+        log.debug("self.args.extract = %s", args.extract)
+        self.set_extract(extract=args.extract)
+        self.set_transform(transform=args.transform)
+        self.set_load(load=args.load)
+        self.set_analysis(analyze=args.analysis)
+
+        # save the config file in the current working directory
+        self.write_to_file()
+
+        # print the main parameters of the current run
+        log.info("The hospital name is: %s", self.get_hospital_name())
+        log.info("The database name is %s", self.get_db_name())
+        log.info("The database will be dropped: %s", ("yes" if self.get_db_drop() else "no"))
+        log.info("The connection string is: %s", self.get_db_connection())
+        log.info("The database will be dropped: %s", self.get_db_drop())
+        log.info("The metadata file is located at: %s", self.get_metadata_filepath())
+        log.info("The data files are located at: %s", self.get_data_filepaths())
+        log.info("The data files are located at: %s", self.get_data_filepaths())
+        log.info("The Extract step will be performed: %s", ("yes" if self.get_extract() else "no"))
+        log.info("The Analysis step will be performed: %s", ("yes" if self.get_analysis() else "no"))
+        log.info("The Transform step will be performed: %s", ("yes" if self.get_transform() else "no"))
+        log.info("The Load step will be performed: %s", ("yes" if self.get_load() else "no"))
+        log.info("Use english (en_US) locale instead of the one assigned by the system: %s", ("yes" if self.get_use_en_locale() else "no"))
+        log.debug(self.to_json())
 
     # below, define methods for each parameter in the config
     # keep it up-to-date wrt the config file
-    def set_working_dir(self, working_dir):
+    def set_working_dir(self, working_dir: str) -> None:
         if is_not_empty(working_dir):
             self.set_files_section()
-            self.config.set("FILES", "working_dir", working_dir)
+            self.config.set(BetterConfig.FILES_SECTION, BetterConfig.WORKING_DIR_KEY, working_dir)
         else:
             log.error("The working dir cannot be set in the config because it is None or empty.")
 
-    def set_working_dir_current(self, working_dir_current):
+    def set_working_dir_current(self, working_dir_current: str) -> None:
         if is_not_empty(working_dir_current):
             self.set_files_section()
-            self.config.set("FILES", "working_dir_current", working_dir_current)
+            self.config.set(BetterConfig.FILES_SECTION, BetterConfig.WORKING_DIR_CURRENT_KEY, working_dir_current)
         else:
             log.error("The current working dir cannot be set in the config because it is None or empty.")
 
-    def set_metadata_filepath(self, metadata_filepath):
+    def set_metadata_filepath(self, metadata_filepath: str) -> None:
         if is_not_empty(metadata_filepath):
             self.set_files_section()
-            self.config.set("FILES", "metadata_filepath", metadata_filepath)
+            self.config.set(BetterConfig.FILES_SECTION, BetterConfig.METADATA_FILEPATH_KEY, metadata_filepath)
         else:
             log.error("The metadata filepath cannot be set in the config because it is None or empty.")
 
-    def set_data_filepath(self, data_filepath):
-        if is_not_empty(data_filepath):
+    def set_current_filepath(self, current_filepath: str) -> None:
+        if is_not_empty(current_filepath):
             self.set_files_section()
-            self.config.set("FILES", "data_filepath", data_filepath)
+            self.config.set(BetterConfig.FILES_SECTION, BetterConfig.CURRENT_FILEPATH_KEY, current_filepath)
         else:
-            log.error("The data filepath cannot be set in the config because it is None or empty.")
+            log.error("The current filepath cannot be set in the config because it is None or empty.")
 
-    def set_db_connection(self, db_connection):
+    def set_data_filepaths(self, data_filepaths: str) -> None:
+        # data_filepaths is a set of data filepaths, concatenated with commas (,)
+        # this is what we get from the user input parameters
+        if is_not_empty(data_filepaths):
+            self.set_files_section()
+            self.config.set(BetterConfig.FILES_SECTION, BetterConfig.DATA_FILEPATHS_KEY, data_filepaths)
+        else:
+            log.error("The data filepaths cannot be set in the config because it is None or empty.")
+
+    def set_db_connection(self, db_connection: str) -> None:
         if is_not_empty(db_connection):
             self.set_database_section()
-            self.config.set("DATABASE", "connection", db_connection)
+            self.config.set(BetterConfig.DB_SECTION, BetterConfig.CONNECTION_KEY, db_connection)
         else:
             log.error("The db connection string cannot be set in the config because it is None or empty.")
 
-    def set_db_name(self, db_name):
+    def set_db_name(self, db_name: str) -> None:
         if is_not_empty(db_name):
             self.set_database_section()
-            self.config.set("DATABASE", "name", db_name)
+            self.config.set(BetterConfig.DB_SECTION, BetterConfig.NAME_KEY, db_name)
         else:
-            log.error("The db name cannot be set in the config because it is None or empty.")
+            log.error("The db name string cannot be set in the config because it is None or empty.")
 
-    def set_db_drop(self, drop):
+    def set_db_drop(self, drop: str) -> None:
         if is_not_empty(drop):
             self.set_database_section()
-            self.config.set("DATABASE", "drop", drop)
+            self.config.set(BetterConfig.DB_SECTION, BetterConfig.DROP_KEY, drop)
         else:
-            log.error("The drop db cannot be set in the config because it is None or empty.")
+            log.error("The drop parameter cannot be set in the config because it is None or empty.")
 
-    def set_hospital_name(self, hospital_name):
+    def set_no_index(self, no_index: str) -> None:
+        if is_not_empty(no_index):
+            self.set_database_section()
+            self.config.set(BetterConfig.DB_SECTION, BetterConfig.NO_INDEX_KEY, no_index)
+        else:
+            log.error("The no_index parameter cannot be set in the config because it is None or empty.")
+
+    def set_hospital_name(self, hospital_name: str) -> None:
         if is_not_empty(hospital_name):
             self.set_hospital_section()
-            self.config.set("HOSPITAL", "name", hospital_name)
+            self.config.set(BetterConfig.HOSPITAL_SECTION, BetterConfig.NAME_KEY, hospital_name)
         else:
-            log.error("The hospital cannot be set in the config because it is None or empty.")
+            log.error("The hospital name parameter cannot be set in the config because it is None or empty.")
 
-    def add_python_version(self):
-        python_version = str(sys.version)
-        if is_not_empty(python_version):
-            self.set_system_section()
-            self.config.set("SYSTEM", "python_version", python_version)
-        else:
-            log.error("The Python version cannot be set in the config because it is None or empty.")
+    def add_python_version(self) -> None:
+        self.set_system_section()
+        self.config.set(BetterConfig.SYSTEM_SECTION, BetterConfig.PYTHON_VERSION_KEY, platform.python_version())
 
-    def add_pymongo_version(self):
-        pymongo_version = pymongo.version
-        if is_not_empty(pymongo_version):
-            self.set_system_section()
-            self.config.set("SYSTEM", "pymongo_version", pymongo_version)
-        else:
-            log.error("The Pymongo version cannot be set in the config because it is None or empty.")
+    def add_pymongo_version(self) -> None:
+        self.set_system_section()
+        self.config.set(BetterConfig.SYSTEM_SECTION, BetterConfig.PYMONGO_VERSION_KEY, pymongo.version)
 
-    def add_mongodb_version(self, client):
-        mongodb_version = client.server_info()["version"]
-        if is_not_empty(mongodb_version):
-            self.set_system_section()
-            self.config.set("SYSTEM", "mongodb_version", mongodb_version)
-        else:
-            log.error("The Pymongo version cannot be set in the config because it is None or empty.")
+    def add_execution_date(self) -> None:
+        self.set_system_section()
+        self.config.set(BetterConfig.SYSTEM_SECTION, BetterConfig.EXECUTION_KEY, str(datetime.now()))
 
-    def add_execution_date(self):
-        execution_date = str(datetime.now())
-        if is_not_empty(execution_date):
-            self.set_system_section()
-            self.config.set("SYSTEM", "execution_date", execution_date)
-        else:
-            log.error("The execution date cannot be set in the config because it is None or empty.")
+    def add_platform(self) -> None:
+        self.set_system_section()
+        self.config.set(BetterConfig.SYSTEM_SECTION, BetterConfig.PLATFORM_KEY, platform.platform())
 
-    def add_platform(self):
-        platform_value = platform.platform()
-        if is_not_empty(platform_value):
-            self.set_system_section()
-            self.config.set("SYSTEM", "platform", platform_value)
-        else:
-            log.error("The platform cannot be set in the config because it is None or empty.")
+    def add_platform_version(self) -> None:
+        self.set_system_section()
+        self.config.set(BetterConfig.SYSTEM_SECTION, BetterConfig.PLATFORM_VERSION_KEY, platform.version())
 
-    def add_platform_version(self):
-        platform_version = platform.version()
-        if is_not_empty(platform_version):
-            self.set_system_section()
-            self.config.set("SYSTEM", "platform_version", platform_version)
-        else:
-            log.error("The plateform version cannot be set in the config because it is None or empty.")
+    def add_user(self) -> None:
+        self.set_system_section()
+        self.config.set(BetterConfig.SYSTEM_SECTION, BetterConfig.USER_KEY, getpass.getuser())
 
-    def add_user(self):
-        user = getpass.getuser()
-        if is_not_empty(user):
-            self.set_system_section()
-            self.config.set("SYSTEM", "user", user)
-        else:
-            log.error("The user cannot be set in the config because it is None or empty.")
+    def set_use_en_locale(self, use_en_locale: str) -> None:
+        self.set_system_section()
+        self.config.set(BetterConfig.SYSTEM_SECTION, BetterConfig.USE_EN_LOCALE_KEY, use_en_locale)
+
+    def set_extract(self, extract: str) -> None:
+        self.set_run_section()
+        self.config.set(BetterConfig.RUN_SECTION, BetterConfig.EXTRACT_KEY, extract)
+
+    def set_transform(self, transform: str) -> None:
+        self.set_run_section()
+        self.config.set(BetterConfig.RUN_SECTION, BetterConfig.TRANSFORM_KEY, transform)
+
+    def set_load(self, load: str) -> None:
+        self.set_run_section()
+        self.config.set(BetterConfig.RUN_SECTION, BetterConfig.LOAD_KEY, load)
+
+    def set_analysis(self, analyze: str) -> None:
+        self.set_run_section()
+        self.config.set(BetterConfig.RUN_SECTION, BetterConfig.ANALYSIS_KEY, analyze)
 
     # set sections
-    def set_files_section(self):
-        if not self.config.has_section("FILES"):
-            self.config.add_section("FILES")
+    def set_files_section(self) -> None:
+        if not self.config.has_section(BetterConfig.FILES_SECTION):
+            self.config.add_section(BetterConfig.FILES_SECTION)
 
-    def set_database_section(self):
-        if not self.config.has_section("DATABASE"):
-            self.config.add_section("DATABASE")
+    def set_database_section(self) -> None:
+        if not self.config.has_section(BetterConfig.DB_SECTION):
+            self.config.add_section(BetterConfig.DB_SECTION)
 
-    def set_hospital_section(self):
-        if not self.config.has_section("HOSPITAL"):
-            self.config.add_section("HOSPITAL")
+    def set_hospital_section(self) -> None:
+        if not self.config.has_section(BetterConfig.HOSPITAL_SECTION):
+            self.config.add_section(BetterConfig.HOSPITAL_SECTION)
 
-    def set_system_section(self):
-        if not self.config.has_section("SYSTEM"):
-            self.config.add_section("SYSTEM")
+    def set_system_section(self) -> None:
+        if not self.config.has_section(BetterConfig.SYSTEM_SECTION):
+            self.config.add_section(BetterConfig.SYSTEM_SECTION)
+
+    def set_run_section(self) -> None:
+        if not self.config.has_section(BetterConfig.RUN_SECTION):
+            self.config.add_section(BetterConfig.RUN_SECTION)
 
     # get config variables
-    def get_working_dir(self):
+    def get_working_dir(self) -> str:
         try:
-            return self.config.get("FILES", "working_dir")
-        except:
-            # if the section or the key is not found, return empty string
+            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.WORKING_DIR_KEY)
+        except Exception:
             return ""
 
-    def get_working_dir_current(self):
+    def get_working_dir_current(self) -> str:
         try:
-            return self.config.get("FILES", "working_dir_current")
-        except:
+            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.WORKING_DIR_CURRENT_KEY)
+        except Exception:
             return ""
 
-    def get_metadata_filepath(self):
+    def get_metadata_filepath(self) -> str:
         try:
-            return self.config.get("FILES", "metadata_filepath")
-        except:
+            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.METADATA_FILEPATH_KEY)
+        except Exception:
             return ""
 
-    def get_data_filepath(self):
+    def get_current_filepath(self) -> str:
         try:
-            return self.config.get("FILES", "data_filepath")
-        except:
+            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.CURRENT_FILEPATH_KEY)
+        except Exception:
             return ""
 
-    def get_db_connection(self):
+    def get_data_filepaths(self) -> list:
         try:
-            return self.config.get("DATABASE", "connection")
-        except:
+            # return the list of files instead of the stringified list of files
+            return self.config.get(BetterConfig.FILES_SECTION, BetterConfig.DATA_FILEPATHS_KEY).split(",")
+        except Exception:
+            return []
+
+    def get_db_connection(self) -> str:
+        try:
+            return self.config.get(BetterConfig.DB_SECTION, BetterConfig.CONNECTION_KEY)
+        except Exception:
             return ""
 
-    def get_db_name(self):
+    def get_db_name(self) -> str:
         try:
-            return self.config.get("DATABASE", "name")
-        except:
+            return self.config.get(BetterConfig.DB_SECTION, BetterConfig.NAME_KEY)
+        except Exception:
             return ""
 
     def get_db_drop(self) -> bool:
         try:
-            return True if self.config.get("DATABASE", "drop") == "True" else False
-        except:
+            return self.config.get(BetterConfig.DB_SECTION, BetterConfig.DROP_KEY) == "True"
+        except Exception:
             return False
 
-    def get_hospital_name(self):
+    def get_no_index(self) -> bool:
         try:
-            return self.config.get("HOSPITAL", "name")
-        except:
+            return self.config.get(BetterConfig.DB_SECTION, BetterConfig.NO_INDEX_KEY) == "True"
+        except Exception:
+            return False
+
+    def get_hospital_name(self) -> str:
+        try:
+            return self.config.get(BetterConfig.HOSPITAL_SECTION, BetterConfig.NAME_KEY)
+        except Exception:
             return ""
 
-    def get_python_version(self):
+    def get_python_version(self) -> str:
         try:
-            return self.config.get("SYSTEM", "python_version")
-        except:
+            return self.config.get(BetterConfig.SYSTEM_SECTION, BetterConfig.PYTHON_VERSION_KEY)
+        except Exception:
             return ""
 
-    def get_pymongo_version(self):
+    def get_pymongo_version(self) -> str:
         try:
-            return self.config.get("SYSTEM", "pymongo_version")
-        except:
+            return self.config.get(BetterConfig.SYSTEM_SECTION, BetterConfig.PYMONGO_VERSION_KEY)
+        except Exception:
             return ""
 
-    def get_mongodb_version(self):
+    def get_execution_date(self) -> str:
         try:
-            return self.config.get("SYSTEM", "mongodb_version")
-        except:
+            return self.config.get(BetterConfig.SYSTEM_SECTION, BetterConfig.EXECUTION_KEY)
+        except Exception:
             return ""
 
-    def get_execution_date(self):
+    def get_platform(self) -> str:
         try:
-            return self.config.get("SYSTEM", "execution_date")
-        except:
+            return self.config.get(BetterConfig.SYSTEM_SECTION, BetterConfig.PLATFORM_KEY)
+        except Exception:
             return ""
 
-    def get_platform(self):
+    def get_platform_version(self) -> str:
         try:
-            return self.config.get("SYSTEM", "platform")
-        except:
+            return self.config.get(BetterConfig.SYSTEM_SECTION, BetterConfig.PLATFORM_VERSION_KEY)
+        except Exception:
             return ""
 
-    def get_platform_version(self):
+    def get_user(self) -> str:
         try:
-            return self.config.get("SYSTEM", "platform_version")
-        except:
+            return self.config.get(BetterConfig.SYSTEM_SECTION, BetterConfig.USER_KEY)
+        except Exception:
             return ""
 
-    def get_user(self):
+    def get_use_en_locale(self) -> bool:
         try:
-            return self.config.get("SYSTEM", "user")
-        except:
-            return ""
+            return self.config.get(BetterConfig.SYSTEM_SECTION, BetterConfig.USE_EN_LOCALE_KEY) == "True"
+        except Exception:
+            return False
+
+    def get_extract(self) -> bool:
+        try:
+            return self.config.get(BetterConfig.RUN_SECTION, BetterConfig.EXTRACT_KEY) == "True"
+        except Exception:
+            return False
+
+    def get_transform(self) -> bool:
+        try:
+            return self.config.get(BetterConfig.RUN_SECTION, BetterConfig.TRANSFORM_KEY) == "True"
+        except Exception:
+            return False
+
+    def get_load(self) -> bool:
+        try:
+            return self.config.get(BetterConfig.RUN_SECTION, BetterConfig.LOAD_KEY) == "True"
+        except Exception:
+            return False
+
+    def get_analysis(self) -> bool:
+        try:
+            return self.config.get(BetterConfig.RUN_SECTION, BetterConfig.ANALYSIS_KEY) == "True"
+        except Exception:
+            return False
 
     # write config to file
-    def write_to_file(self):
-        log.debug(os.path.join(self.get_working_dir_current(), DEFAULT_CONFIG_FILE))
-        with open(os.path.join(self.get_working_dir_current(), DEFAULT_CONFIG_FILE), 'w') as f:
+    def write_to_file(self) -> None:
+        config_filepath = os.path.join(self.get_working_dir_current(), DEFAULT_CONFIG_FILE)
+        with open(config_filepath, 'w') as f:
             self.config.write(f)
 
-    def to_json(self):
+    def to_json(self) -> dict:
         return {
-            "FILES": [
-                { "working_dir": self.get_working_dir() },
-                { "working_dir_current": self.get_working_dir_current() },
-                { "metadata_filepath": self.get_metadata_filepath() },
-                { "data_filepath": self.get_data_filepath() }
-            ],
-            "DATABASE": [
-                { "connection": self.get_db_connection() },
-                { "name": self.get_db_name() },
-                { "drop": self.get_db_drop() }
-            ],
-            "HOSPITAL": [
-                { "name": self.get_hospital_name() }
-            ],
-            "SYSTEM": [
-                { "python_version": self.get_python_version() },
-                { "pymongo_version": self.get_pymongo_version() },
-                { "mongodb_version": self.get_mongodb_version() },
-                { "execution_date": self.get_execution_date() },
-                { "platform": self.get_platform() },
-                { "platform_version": self.get_platform_version() },
-                { "user": self.get_user()}
-            ]
+            BetterConfig.FILES_SECTION + "/" + BetterConfig.WORKING_DIR_KEY: self.get_working_dir(),
+            BetterConfig.FILES_SECTION + "/" + BetterConfig.WORKING_DIR_CURRENT_KEY: self.get_working_dir_current(),
+            BetterConfig.FILES_SECTION + "/" + BetterConfig.METADATA_FILEPATH_KEY: self.get_metadata_filepath(),
+            BetterConfig.FILES_SECTION + "/" + BetterConfig.DATA_FILEPATHS_KEY: self.get_data_filepaths(),
+            BetterConfig.FILES_SECTION + "/" + BetterConfig.CURRENT_FILEPATH_KEY: self.get_current_filepath(),
+            BetterConfig.DB_SECTION + "/" + BetterConfig.CONNECTION_KEY: self.get_db_connection(),
+            BetterConfig.DB_SECTION + "/" + BetterConfig.NAME_KEY: self.get_db_name(),
+            BetterConfig.DB_SECTION + "/" + BetterConfig.DROP_KEY: self.get_db_drop(),
+            BetterConfig.HOSPITAL_SECTION + "/" + BetterConfig.NAME_KEY: self.get_hospital_name(),
+            BetterConfig.SYSTEM_SECTION + "/" + BetterConfig.PYTHON_VERSION_KEY: self.get_python_version(),
+            BetterConfig.SYSTEM_SECTION + "/" + BetterConfig.EXECUTION_KEY: self.get_execution_date(),
+            BetterConfig.SYSTEM_SECTION + "/" + BetterConfig.PLATFORM_KEY: self.get_platform(),
+            BetterConfig.SYSTEM_SECTION + "/" + BetterConfig.PLATFORM_VERSION_KEY: self.get_platform_version(),
+            BetterConfig.SYSTEM_SECTION + "/" + BetterConfig.USER_KEY: self.get_user()
         }

@@ -1,48 +1,44 @@
-import json
-import os
-import re
+import traceback
 
-from src.config.BetterConfig import BetterConfig
-from src.database.Database import Database
-from src.utils.TableNames import TableNames
-from src.utils.setup_logger import log
+from config.BetterConfig import BetterConfig
+from database.Database import Database
+from utils.TableNames import TableNames
+from utils.setup_logger import log
 
 
 class Load:
-    def __init__(self, database: Database, config: BetterConfig):
+    def __init__(self, database: Database, config: BetterConfig, create_indexes: bool):
         self.database = database
         self.config = config
+        self.create_indexes = create_indexes
 
-    def run(self):
+    def run(self) -> None:
         # Insert resources that have not been inserted yet, i.e.,
         # anything else than Hospital, Examination and Disease instances
         log.debug("in the Load class")
-        self.load_json_in_table(table_name=TableNames.PATIENT.value, unique_variables=["identifier"])
+        self.database.load_json_in_table(table_name=TableNames.PATIENT.value, unique_variables=["identifier"])
 
-        self.load_json_in_table(table_name=TableNames.EXAMINATION_RECORD.value, unique_variables=["recordedBy", "subject", "basedOn", "instantiate"])
+        self.database.load_json_in_table(table_name=TableNames.EXAMINATION_RECORD.value, unique_variables=["recordedBy", "subject", "basedOn", "instantiate"])
 
-        self.load_json_in_table(table_name=TableNames.SAMPLE.value, unique_variables=["identifier"])
+        self.database.load_json_in_table(table_name=TableNames.SAMPLE.value, unique_variables=["identifier"])
 
-    def load_json_in_table(self, table_name: str, unique_variables):
-        for filename in os.listdir(self.config.get_working_dir_current()):
-            if re.search(table_name+"[0-9]+", filename) is not None:
-                # implementation note: we cannot simply use filename.startswith(table_name)
-                # because both Examination and ExaminationRecord start with Examination
-                # the solution is to use a regex
-                with open(os.path.join(self.config.get_working_dir_current(), filename), "r") as json_datafile:
-                    log.debug(os.path.join(self.config.get_working_dir_current(), filename))
-                    tuples = json.load(json_datafile)
-                    log.debug(len(tuples))
-                    log.debug("Table %s, file %s, loading %s tuples", table_name, filename, len(tuples))
-                    self.database.upsert_batch_of_tuples(table_name=table_name,
-                                                         unique_variables=unique_variables,
-                                                         tuples=tuples)
+        # if everything has been loaded, we can create indexes
+        if self.create_indexes and not self.config.get_no_index():
+            self.create_db_indexes()
 
-    def retrieve_identifiers(self, table_name: str, projection: str):
-        return self.database.retrieve_identifiers(table_name=table_name, projection=projection)
-
-    def create_db_indexes(self):
-        self.database.create_unique_index(table_name=TableNames.PATIENT.value, columns={"metadata.csv_filepath": 1, "metadata.csv_line": 1})
-        self.database.create_unique_index(table_name=TableNames.HOSPITAL.value, columns={"id": 1, "name": 1})
-        self.database.create_unique_index(table_name=TableNames.EXAMINATION.value, columns={"code.codings.system": 1, "code.codings.code": 1})
-        self.database.create_unique_index(table_name=TableNames.EXAMINATION_RECORD.value, columns={"instantiate.reference": 1, "subject.reference": 1, "recorded_by.reference": 1, "value": 1, "issued": 1})
+    def create_db_indexes(self) -> None:
+        log.info("Creating indexes.")
+        # try:
+        # 1. for each resource type, we create an index on its "identifier" and its creation date "createdAt"
+        for table_name in TableNames:
+            self.database.create_unique_index(table_name=table_name.value, columns={"identifier.value": 1})
+            self.database.create_non_unique_index(table_name=table_name.value, columns={"createdAt": 1})
+        # 2. next, we also create resource-wise indexes
+        # for Examination instances, we create an index both on the ontology (system) and a code
+        # this is because we usually ask for a code for a given ontology (what is a coe without its ontology? nothing)
+        self.database.create_non_unique_index(table_name=TableNames.EXAMINATION.value, columns={"code.coding.system": 1, "code.coding.code": 1})
+        # for ExaminationRecord instances, we create an index per reference because we usually join each reference to a table
+        self.database.create_non_unique_index(table_name=TableNames.EXAMINATION_RECORD.value, columns={"instantiate.reference": 1})
+        self.database.create_non_unique_index(table_name=TableNames.EXAMINATION_RECORD.value, columns={"subject.reference": 1})
+        self.database.create_non_unique_index(table_name=TableNames.EXAMINATION_RECORD.value, columns={"basedOn.reference": 1})
+        log.info("Finished to create indexes.")
