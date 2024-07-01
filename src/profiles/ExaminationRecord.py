@@ -7,7 +7,7 @@ from profiles.Resource import Resource
 from utils.TableNames import TableNames
 from utils.Counter import Counter
 from utils.utils import get_mongodb_date_from_datetime
-from utils.setup_logger import log
+from utils.setup_logger import main_logger
 
 
 class ExaminationRecord(Resource):
@@ -40,7 +40,7 @@ class ExaminationRecord(Resource):
             # complex type, we need to expand it with .to_json()
             expanded_value = self.value.to_json()
         elif isinstance(self.value, datetime):
-            log.debug("The datetime value in ExaminationRecord is %s", self.value)
+            main_logger.debug("The datetime value in ExaminationRecord is %s", self.value)
             expanded_value = get_mongodb_date_from_datetime(current_datetime=self.value)
         else:
             # primitive type, no need to expand it

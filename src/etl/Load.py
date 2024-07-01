@@ -3,7 +3,7 @@ import traceback
 from config.BetterConfig import BetterConfig
 from database.Database import Database
 from utils.TableNames import TableNames
-from utils.setup_logger import log
+from utils.setup_logger import main_logger
 
 
 class Load:
@@ -15,7 +15,7 @@ class Load:
     def run(self) -> None:
         # Insert resources that have not been inserted yet, i.e.,
         # anything else than Hospital, Examination and Disease instances
-        log.debug("in the Load class")
+        main_logger.debug("in the Load class")
         self.database.load_json_in_table(table_name=TableNames.PATIENT.value, unique_variables=["identifier"])
 
         self.database.load_json_in_table(table_name=TableNames.EXAMINATION_RECORD.value, unique_variables=["recordedBy", "subject", "basedOn", "instantiate"])
@@ -27,7 +27,7 @@ class Load:
             self.create_db_indexes()
 
     def create_db_indexes(self) -> None:
-        log.info("Creating indexes.")
+        main_logger.info("Creating indexes.")
         # try:
         # 1. for each resource type, we create an index on its "identifier" and its creation date "createdAt"
         for table_name in TableNames:
@@ -41,4 +41,4 @@ class Load:
         self.database.create_non_unique_index(table_name=TableNames.EXAMINATION_RECORD.value, columns={"instantiate.reference": 1})
         self.database.create_non_unique_index(table_name=TableNames.EXAMINATION_RECORD.value, columns={"subject.reference": 1})
         self.database.create_non_unique_index(table_name=TableNames.EXAMINATION_RECORD.value, columns={"basedOn.reference": 1})
-        log.info("Finished to create indexes.")
+        main_logger.info("Finished to create indexes.")

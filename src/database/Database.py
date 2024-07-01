@@ -14,7 +14,7 @@ from config.BetterConfig import BetterConfig
 from utils.TableNames import TableNames
 from utils.UpsertPolicy import UpsertPolicy
 from utils.constants import BATCH_SIZE
-from utils.setup_logger import log
+from utils.setup_logger import main_logger
 from utils.utils import mongodb_match, mongodb_unwind, mongodb_project_one, mongodb_min, mongodb_max, mongodb_group_by, \
     mongodb_sort
 
@@ -42,14 +42,14 @@ class Database:
             self.drop_db()
         self.db = self.client[self.config.get_db_name()]
 
-        log.debug("the connection string is: %s", self.config.get_db_connection())
-        log.debug("the new MongoClient is: %s", self.client)
-        log.debug("the database is: %s", self.db)
+        main_logger.debug("the connection string is: %s", self.config.get_db_connection())
+        main_logger.debug("the new MongoClient is: %s", self.client)
+        main_logger.debug("the database is: %s", self.db)
 
         if self.check_server_is_up():
-            log.info("The MongoDB client could be set up properly.")
+            main_logger.info("The MongoDB client could be set up properly.")
         else:
-            log.error("The MongoDB client could not be set up properly. The given connection string was %s.", self.config.get_db_connection())
+            main_logger.error("The MongoDB client could not be set up properly. The given connection string was %s.", self.config.get_db_connection())
 
     def check_server_is_up(self) -> bool:
         """
@@ -61,7 +61,7 @@ class Database:
             self.client.admin.command('ping')
             return True
         except Exception as e:
-            log.error(e)
+            main_logger.error(e)
             return False
 
     def drop_db(self) -> None:
@@ -69,7 +69,7 @@ class Database:
         Drop the current database.
         :return: Nothing.
         """
-        log.info("WARNING: The database %s will be dropped!", self.config.get_db_name())
+        main_logger.info("WARNING: The database %s will be dropped!", self.config.get_db_name())
         self.client.drop_database(name_or_database=self.config.get_db_name())
 
     def close(self) -> None:
@@ -133,9 +133,9 @@ class Database:
                 filter_dict[unique_variable] = one_tuple[unique_variable]
             update_stmt = {"$setOnInsert": one_tuple}
             operations.append(pymongo.UpdateOne(filter=filter_dict, update=update_stmt, upsert=True))
-        log.debug("Table %s: sending a bulk write of %s operations", table_name, len(operations))
+        main_logger.debug("Table %s: sending a bulk write of %s operations", table_name, len(operations))
         result_upsert = self.db[table_name].bulk_write(operations)
-        log.info("In %s, %s inserted, %s upserted, %s modified tuples", table_name, result_upsert.inserted_count, result_upsert.upserted_count, result_upsert.modified_count)
+        main_logger.info("In %s, %s inserted, %s upserted, %s modified tuples", table_name, result_upsert.inserted_count, result_upsert.upserted_count, result_upsert.modified_count)
 
     def compute_batches(self, tuples: list[dict]) -> list[list[dict]]:
         batch_tuples = []
@@ -162,7 +162,7 @@ class Database:
                 # this covers the case when the project is a nested key, e.g., code.text
                 projected_value = projected_value[key]
             mapping[projected_value] = result["identifier"]
-        log.debug(mapping)
+        main_logger.debug(mapping)
         return mapping
 
     def write_in_file(self, data_array: list, table_name: str, count: int) -> None:
@@ -173,13 +173,13 @@ class Database:
                     json.dump([resource.to_json() for resource in data_array], data_file)
                 except Exception:
                     traceback.print_exc()
-                    log.error("The %s instances could not be converted to JSON. Stopping here.", table_name)
+                    main_logger.error("The %s instances could not be converted to JSON. Stopping here.", table_name)
                     exit()
         else:
-            log.info("No data when writing file %s/%s", table_name, count)
+            main_logger.info("No data when writing file %s/%s", table_name, count)
 
     def load_json_in_table(self, table_name: str, unique_variables) -> None:
-        log.info("insert data in %s", table_name)
+        main_logger.info("insert data in %s", table_name)
         for filename in os.listdir(self.config.get_working_dir_current()):
             if re.search(table_name+"[0-9]+", filename) is not None:
                 # implementation note: we cannot simply use filename.startswith(table_name)
@@ -187,8 +187,8 @@ class Database:
                 # the solution is to use a regex
                 with open(os.path.join(self.config.get_working_dir_current(), filename), "r") as json_datafile:
                     tuples = bson.json_util.loads(json_datafile.read())
-                    log.info(tuples)
-                    log.debug("Table %s, file %s, loading %s tuples", table_name, filename, len(tuples))
+                    main_logger.info(tuples)
+                    main_logger.debug("Table %s, file %s, loading %s tuples", table_name, filename, len(tuples))
                     self.upsert_batch_of_tuples(table_name=table_name,
                                                          unique_variables=unique_variables,
                                                          tuples=tuples)
@@ -247,7 +247,7 @@ class Database:
         cursor = self.db[table_name].aggregate(operations)
 
         for result in cursor:
-            log.debug(result)
+            main_logger.debug(result)
             # There should be only one result, so we can return directly the min or max value
             if sort_order == 1:
                 return result["min"]

@@ -11,7 +11,7 @@ from etl.Transform import Transform
 from utils.Counter import Counter
 from utils.HospitalNames import HospitalNames
 from utils.constants import LOCALES
-from utils.setup_logger import log
+from utils.setup_logger import main_logger
 
 
 class ETL:
@@ -20,22 +20,22 @@ class ETL:
         self.database = database
 
         if self.database.check_server_is_up():
-            log.info("The MongoDB client could be set up properly.")
+            main_logger.info("The MongoDB client could be set up properly.")
         else:
-            log.error("The MongoDB client could not be set up properly. The given connection string was %s.", self.config.get_db_connection())
+            main_logger.error("The MongoDB client could not be set up properly. The given connection string was %s.", self.config.get_db_connection())
             exit()
 
         # set the locale
         if self.config.get_use_en_locale():
             # this user explicitly asked for loading data with en_US locale
-            log.debug("default locale: en_US")
+            main_logger.debug("default locale: en_US")
             locale.setlocale(category=locale.LC_NUMERIC, locale="en_US")
         else:
             # we use the default locale assigned to each center based on their country
-            log.debug("custom locale: %s", LOCALES[HospitalNames[self.config.get_hospital_name()].value])
+            main_logger.debug("custom locale: %s", LOCALES[HospitalNames[self.config.get_hospital_name()].value])
             locale.setlocale(category=locale.LC_NUMERIC, locale=LOCALES[HospitalNames[self.config.get_hospital_name()].value])
 
-        log.info("Current locale is: %s", locale.getlocale(locale.LC_NUMERIC))
+        main_logger.info("Current locale is: %s", locale.getlocale(locale.LC_NUMERIC))
 
         # init ETL steps
         self.extract = None
@@ -47,7 +47,7 @@ class ETL:
         is_last_file = False
         file_counter = 0
         for one_file in self.config.get_data_filepaths():
-            log.debug(one_file)
+            main_logger.debug(one_file)
             file_counter = file_counter + 1
             if file_counter == len(self.config.get_data_filepaths()):
                 is_last_file = True
@@ -61,7 +61,7 @@ class ETL:
                 full_path = os.path.join(self.config.get_working_dir_current(), "..", "..", str(one_file))
                 self.config.set_current_filepath(current_filepath=full_path)
 
-            log.info("--- Starting to ingest file '%s'", self.config.get_current_filepath())
+            main_logger.info("--- Starting to ingest file '%s'", self.config.get_current_filepath())
             try:
                 if self.config.get_extract():
                     self.extract = Extract(database=self.database, config=self.config)
@@ -77,11 +77,11 @@ class ETL:
                     self.load.run()
             except Exception:
                 traceback.print_exc()  # print the stack trace
-                log.error("An error occurred during the ETL. Please check the complete log. ")
+                main_logger.error("An error occurred during the ETL. Please check the complete main_logger. ")
                 error_occurred = True
 
         # saving the execution parameters in the database before closing the execution
-        log.info("Saving execution parameters in the database.")
+        main_logger.info("Saving execution parameters in the database.")
         # we ensure to have an existing counter, otherwise we create a new one and set it to the max current id
         if self.transform is not None:
             counter_transform = self.transform.counter
@@ -92,6 +92,6 @@ class ETL:
         execution.store_in_database()
 
         if not error_occurred:
-            log.info("All given files have been processed without error. Goodbye!")
+            main_logger.info("All given files have been processed without error. Goodbye!")
         else:
-            log.error("The script stopped at some point due to errors. Please check the complete log.")
+            main_logger.error("The script stopped at some point due to errors. Please check the complete main_logger.")

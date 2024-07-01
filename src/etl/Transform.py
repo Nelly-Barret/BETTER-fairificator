@@ -18,7 +18,7 @@ from utils.HospitalNames import HospitalNames
 from utils.MetadataColumns import MetadataColumns
 from utils.TableNames import TableNames
 from utils.constants import NONE_VALUE, NO_EXAMINATION_COLUMNS, BATCH_SIZE, ID_COLUMNS, PHENOTYPIC_VARIABLES
-from utils.setup_logger import log
+from utils.setup_logger import main_logger
 from utils.utils import is_in_insensitive, is_not_nan, convert_value, get_ontology_system, normalize_value, \
     is_equal_insensitive
 
@@ -52,10 +52,10 @@ class Transform:
         self.set_resource_counter_id()
         self.create_hospital(hospital_name=self.config.get_hospital_name())
         self.database.load_json_in_table(table_name=TableNames.HOSPITAL.value, unique_variables=["name"])
-        log.info("Hospital count: %s", self.database.count_documents(table_name=TableNames.HOSPITAL.value, filter_dict={}))
+        main_logger.info("Hospital count: %s", self.database.count_documents(table_name=TableNames.HOSPITAL.value, filter_dict={}))
         self.create_examinations()
         self.database.load_json_in_table(table_name=TableNames.EXAMINATION.value, unique_variables=["code"])
-        log.info("Examination count: %s", self.database.count_documents(table_name=TableNames.EXAMINATION.value, filter_dict={}))
+        main_logger.info("Examination count: %s", self.database.count_documents(table_name=TableNames.EXAMINATION.value, filter_dict={}))
         self.create_samples()
         self.create_patients()
         self.create_examination_records()
@@ -64,13 +64,13 @@ class Transform:
         self.counter.set_with_database(database=self.database)
 
     def create_hospital(self, hospital_name: str) -> None:
-        log.info("create hospital instance in memory")
+        main_logger.info("create hospital instance in memory")
         new_hospital = Hospital(id_value=NONE_VALUE, name=hospital_name, counter=self.counter)
         self.hospitals.append(new_hospital)
         self.database.write_in_file(data_array=self.hospitals, table_name=TableNames.HOSPITAL.value, count=1)
 
     def create_examinations(self) -> None:
-        log.info("create examination instances in memory")
+        main_logger.info("create examination instances in memory")
         columns = self.data.columns.values.tolist()
         count = 1
         for column_name in columns:
@@ -80,7 +80,7 @@ class Transform:
                 if cc is not None and cc.codings != []:
                     category = self.determine_examination_category(column_name=lower_column_name)
                     new_examination = Examination(id_value=NONE_VALUE, code=cc, category=category, permitted_data_types=[], counter=self.counter)
-                    # log.info("adding a new examination about %s: %s", cc.text, new_examination)
+                    # main_logger.info("adding a new examination about %s: %s", cc.text, new_examination)
                     self.examinations.append(new_examination)
                     if len(self.examinations) >= BATCH_SIZE:
                         self.database.write_in_file(data_array=self.examinations, table_name=TableNames.EXAMINATION.value, count=count)
@@ -91,14 +91,14 @@ class Transform:
                     # TODO Nelly: this is not true: TooYoung, AnswerIX and BIS have no ontology code as of today (May, 29th 2024)
                     pass
             else:
-                log.debug("I am skipping column %s because it has been marked as not being part of examination instances.", lower_column_name)
+                main_logger.debug("I am skipping column %s because it has been marked as not being part of examination instances.", lower_column_name)
         # save the remaining tuples that have not been saved (because there were less than BATCH_SIZE tuples before the loop ends).
         self.database.write_in_file(data_array=self.examinations, table_name=TableNames.EXAMINATION.value, count=count)
 
     def create_samples(self) -> None:
         if is_in_insensitive(value=ID_COLUMNS[HospitalNames.IT_BUZZI_UC1.value][TableNames.SAMPLE.value], list_of_compared=self.data.columns):
             # this is a dataset with samples
-            log.info("create sample instances in memory")
+            main_logger.info("create sample instances in memory")
             created_sample_barcodes = set()
             count = 1
             for index, row in self.data.iterrows():
@@ -131,16 +131,16 @@ class Transform:
             self.database.write_in_file(data_array=self.samples, table_name=TableNames.SAMPLE.value, count=count)
 
     def create_examination_records(self) -> None:
-        log.info("create examination record instances in memory")
+        main_logger.info("create examination record instances in memory")
 
         # a. load some data from the database to compute references
         self.mapping_hospital_to_hospital_id = self.database.retrieve_identifiers(table_name=TableNames.HOSPITAL.value,
                                                                               projection="name")
-        log.debug(self.mapping_hospital_to_hospital_id)
+        main_logger.debug(self.mapping_hospital_to_hospital_id)
 
         self.mapping_column_to_examination_id = self.database.retrieve_identifiers(table_name=TableNames.EXAMINATION.value,
                                                                                projection="code.text")
-        log.debug(self.mapping_column_to_examination_id)
+        main_logger.debug(self.mapping_column_to_examination_id)
 
         # b. Create ExaminationRecord instance
         count = 1
@@ -155,7 +155,7 @@ class Transform:
                     pass
                 else:
                     if lower_column_name in self.mapping_column_to_examination_id:
-                        # log.info("I know a code for column %s", column_name)
+                        # main_logger.info("I know a code for column %s", column_name)
                         # we know a code for this column, so we can register the value of that examination
                         examination_id = self.mapping_column_to_examination_id[lower_column_name]
                         examination_ref = Reference(resource_identifier=examination_id, resource_type=TableNames.EXAMINATION.value)
@@ -187,7 +187,7 @@ class Transform:
         self.database.write_in_file(data_array=self.examination_records, table_name=TableNames.EXAMINATION_RECORD.value, count=count)
 
     def create_patients(self) -> None:
-        log.info("create patient instances in memory")
+        main_logger.info("create patient instances in memory")
         created_patient_ids = set()
         count = 1
         for index, row in self.data.iterrows():
@@ -219,10 +219,10 @@ class Transform:
             cc.text = row[MetadataColumns.COLUMN_NAME.value]  # the column name (display inside codings will have name+description)
             return cc
         elif len(rows) == 0:
-            # log.warn("Did not find the column '%s' in the metadata", column_name)
+            # main_logger.warn("Did not find the column '%s' in the metadata", column_name)
             return None
         else:
-            # log.warn("Found several times the column '%s' in the metadata", column_name)
+            # main_logger.warn("Found several times the column '%s' in the metadata", column_name)
             return None
 
     def create_code_from_metadata(self, row, ontology_column: str, code_column: str) -> tuple | None:
@@ -234,7 +234,7 @@ class Transform:
             ontology = get_ontology_system(ontology=ontology)  # get the URI of the ontology system instead of its string name
             code = normalize_value(input_string=row[code_column])  # get the ontology code in the metadata for the given column and normalize it (just in case)
             display = Examination.get_label(row=row)
-            # log.info("Found exactly an ontology code for the column '%s', i.e., %s", column_name, code)
+            # main_logger.info("Found exactly an ontology code for the column '%s', i.e., %s", column_name, code)
             cc_tuple = (str(ontology), str(code), str(display))
             return cc_tuple
 

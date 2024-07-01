@@ -10,7 +10,7 @@ from datetime import datetime
 import pymongo
 
 from utils.constants import DEFAULT_CONFIG_FILE
-from utils.setup_logger import log
+from utils.setup_logger import main_logger
 from utils.utils import is_not_empty
 
 
@@ -50,7 +50,7 @@ class BetterConfig:
     def __init__(self):
         self.config = configparser.ConfigParser()
         self.config.read(DEFAULT_CONFIG_FILE)
-        log.debug(self.to_json())
+        main_logger.debug(self.to_json())
 
     def set_from_parameters(self, args: Namespace) -> None:
         # the user gave parameters
@@ -72,7 +72,7 @@ class BetterConfig:
 
         # get metadata and data filepaths
         if not os.path.isfile(args.metadata_filepath):
-            log.error("The specified metadata file does not seem to exist. Please check the path.")
+            main_logger.error("The specified metadata file does not seem to exist. Please check the path.")
             exit()
         else:
             metadata_filename = "metadata-" + args.hospital_name + ".csv"
@@ -82,17 +82,17 @@ class BetterConfig:
 
         # if there is a single file, this will put that file in a list
         # otherwise, when the user provides several files, it will split them in the array
-        log.debug(args.data_filepath)
+        main_logger.debug(args.data_filepath)
         split_files = args.data_filepath.split(",")
-        log.debug(split_files)
+        main_logger.debug(split_files)
         for current_file in split_files:
             if not os.path.isfile(current_file):
-                log.error("The specified data file '%s' does not seem to exist. Please check the path.",
+                main_logger.error("The specified data file '%s' does not seem to exist. Please check the path.",
                           current_file)
                 exit()
         # we do not copy the data in our working dir because it is too large to be copied
         self.set_data_filepaths(data_filepaths=args.data_filepath)  # file 1,file 2, ...,file N
-        log.debug(self.get_data_filepaths())
+        main_logger.debug(self.get_data_filepaths())
 
         # write more information about the current run in the config
         self.add_python_version()
@@ -104,7 +104,7 @@ class BetterConfig:
         self.set_use_en_locale(use_en_locale=args.use_en_locale)
 
         # and about the user parameters
-        log.debug("self.args.extract = %s", args.extract)
+        main_logger.debug("self.args.extract = %s", args.extract)
         self.set_extract(extract=args.extract)
         self.set_transform(transform=args.transform)
         self.set_load(load=args.load)
@@ -114,20 +114,20 @@ class BetterConfig:
         self.write_to_file()
 
         # print the main parameters of the current run
-        log.info("The hospital name is: %s", self.get_hospital_name())
-        log.info("The database name is %s", self.get_db_name())
-        log.info("The database will be dropped: %s", ("yes" if self.get_db_drop() else "no"))
-        log.info("The connection string is: %s", self.get_db_connection())
-        log.info("The database will be dropped: %s", self.get_db_drop())
-        log.info("The metadata file is located at: %s", self.get_metadata_filepath())
-        log.info("The data files are located at: %s", self.get_data_filepaths())
-        log.info("The data files are located at: %s", self.get_data_filepaths())
-        log.info("The Extract step will be performed: %s", ("yes" if self.get_extract() else "no"))
-        log.info("The Analysis step will be performed: %s", ("yes" if self.get_analysis() else "no"))
-        log.info("The Transform step will be performed: %s", ("yes" if self.get_transform() else "no"))
-        log.info("The Load step will be performed: %s", ("yes" if self.get_load() else "no"))
-        log.info("Use english (en_US) locale instead of the one assigned by the system: %s", ("yes" if self.get_use_en_locale() else "no"))
-        log.debug(self.to_json())
+        main_logger.info("The hospital name is: %s", self.get_hospital_name())
+        main_logger.info("The database name is %s", self.get_db_name())
+        main_logger.info("The database will be dropped: %s", ("yes" if self.get_db_drop() else "no"))
+        main_logger.info("The connection string is: %s", self.get_db_connection())
+        main_logger.info("The database will be dropped: %s", self.get_db_drop())
+        main_logger.info("The metadata file is located at: %s", self.get_metadata_filepath())
+        main_logger.info("The data files are located at: %s", self.get_data_filepaths())
+        main_logger.info("The data files are located at: %s", self.get_data_filepaths())
+        main_logger.info("The Extract step will be performed: %s", ("yes" if self.get_extract() else "no"))
+        main_logger.info("The Analysis step will be performed: %s", ("yes" if self.get_analysis() else "no"))
+        main_logger.info("The Transform step will be performed: %s", ("yes" if self.get_transform() else "no"))
+        main_logger.info("The Load step will be performed: %s", ("yes" if self.get_load() else "no"))
+        main_logger.info("Use english (en_US) locale instead of the one assigned by the system: %s", ("yes" if self.get_use_en_locale() else "no"))
+        main_logger.debug(self.to_json())
 
     # below, define methods for each parameter in the config
     # keep it up-to-date wrt the config file
@@ -136,28 +136,28 @@ class BetterConfig:
             self.set_files_section()
             self.config.set(BetterConfig.FILES_SECTION, BetterConfig.WORKING_DIR_KEY, working_dir)
         else:
-            log.error("The working dir cannot be set in the config because it is None or empty.")
+            main_logger.error("The working dir cannot be set in the config because it is None or empty.")
 
     def set_working_dir_current(self, working_dir_current: str) -> None:
         if is_not_empty(working_dir_current):
             self.set_files_section()
             self.config.set(BetterConfig.FILES_SECTION, BetterConfig.WORKING_DIR_CURRENT_KEY, working_dir_current)
         else:
-            log.error("The current working dir cannot be set in the config because it is None or empty.")
+            main_logger.error("The current working dir cannot be set in the config because it is None or empty.")
 
     def set_metadata_filepath(self, metadata_filepath: str) -> None:
         if is_not_empty(metadata_filepath):
             self.set_files_section()
             self.config.set(BetterConfig.FILES_SECTION, BetterConfig.METADATA_FILEPATH_KEY, metadata_filepath)
         else:
-            log.error("The metadata filepath cannot be set in the config because it is None or empty.")
+            main_logger.error("The metadata filepath cannot be set in the config because it is None or empty.")
 
     def set_current_filepath(self, current_filepath: str) -> None:
         if is_not_empty(current_filepath):
             self.set_files_section()
             self.config.set(BetterConfig.FILES_SECTION, BetterConfig.CURRENT_FILEPATH_KEY, current_filepath)
         else:
-            log.error("The current filepath cannot be set in the config because it is None or empty.")
+            main_logger.error("The current filepath cannot be set in the config because it is None or empty.")
 
     def set_data_filepaths(self, data_filepaths: str) -> None:
         # data_filepaths is a set of data filepaths, concatenated with commas (,)
@@ -166,42 +166,42 @@ class BetterConfig:
             self.set_files_section()
             self.config.set(BetterConfig.FILES_SECTION, BetterConfig.DATA_FILEPATHS_KEY, data_filepaths)
         else:
-            log.error("The data filepaths cannot be set in the config because it is None or empty.")
+            main_logger.error("The data filepaths cannot be set in the config because it is None or empty.")
 
     def set_db_connection(self, db_connection: str) -> None:
         if is_not_empty(db_connection):
             self.set_database_section()
             self.config.set(BetterConfig.DB_SECTION, BetterConfig.CONNECTION_KEY, db_connection)
         else:
-            log.error("The db connection string cannot be set in the config because it is None or empty.")
+            main_logger.error("The db connection string cannot be set in the config because it is None or empty.")
 
     def set_db_name(self, db_name: str) -> None:
         if is_not_empty(db_name):
             self.set_database_section()
             self.config.set(BetterConfig.DB_SECTION, BetterConfig.NAME_KEY, db_name)
         else:
-            log.error("The db name string cannot be set in the config because it is None or empty.")
+            main_logger.error("The db name string cannot be set in the config because it is None or empty.")
 
     def set_db_drop(self, drop: str) -> None:
         if is_not_empty(drop):
             self.set_database_section()
             self.config.set(BetterConfig.DB_SECTION, BetterConfig.DROP_KEY, drop)
         else:
-            log.error("The drop parameter cannot be set in the config because it is None or empty.")
+            main_logger.error("The drop parameter cannot be set in the config because it is None or empty.")
 
     def set_no_index(self, no_index: str) -> None:
         if is_not_empty(no_index):
             self.set_database_section()
             self.config.set(BetterConfig.DB_SECTION, BetterConfig.NO_INDEX_KEY, no_index)
         else:
-            log.error("The no_index parameter cannot be set in the config because it is None or empty.")
+            main_logger.error("The no_index parameter cannot be set in the config because it is None or empty.")
 
     def set_hospital_name(self, hospital_name: str) -> None:
         if is_not_empty(hospital_name):
             self.set_hospital_section()
             self.config.set(BetterConfig.HOSPITAL_SECTION, BetterConfig.NAME_KEY, hospital_name)
         else:
-            log.error("The hospital name parameter cannot be set in the config because it is None or empty.")
+            main_logger.error("The hospital name parameter cannot be set in the config because it is None or empty.")
 
     def add_python_version(self) -> None:
         self.set_system_section()

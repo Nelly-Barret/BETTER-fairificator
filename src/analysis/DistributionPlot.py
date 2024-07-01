@@ -5,7 +5,7 @@ from pymongo.command_cursor import CommandCursor
 
 import matplotlib.pyplot as plt
 
-from src.utils.setup_logger import log
+from src.utils.setup_logger import main_logger
 
 matplotlib.rcParams['backend'] = 'TkAgg'  # fix to avoid "Loaded backend macosx version unknown." error
 
@@ -21,8 +21,8 @@ class DistributionPlot:
         self.compute_x_and_y_from_cursor("_id", "total")
 
     def draw(self):
-        log.debug(self.x)
-        log.debug(self.y)
+        main_logger.debug(self.x)
+        main_logger.debug(self.y)
         # generate colors and assign one of them to each bar
         df = pd.Series(np.random.randint(10, 50, len(self.y)), index=np.arange(1, len(self.y) + 1))
         cmap = plt.cm.tab10
@@ -42,10 +42,10 @@ class DistributionPlot:
         plt.show()
 
     def compute_x_and_y_from_cursor(self, x_axis: str, y_axis: str):
-        log.debug(self.cursor)
+        main_logger.debug(self.cursor)
         self.x = []
         self.y = []
         for element in self.cursor:
-            log.debug(element)
+            main_logger.debug(element)
             self.x.append(str(element[x_axis]))
             self.y.append(element[y_axis])

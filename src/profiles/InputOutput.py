@@ -2,7 +2,7 @@ import os.path
 
 from datatypes.CodeableConcept import CodeableConcept
 from profiles.Resource import Resource
-from utils.setup_logger import log
+from utils.setup_logger import main_logger
 from utils.Counter import Counter
 from utils.utils import get_datetime_from_str
 
@@ -13,13 +13,13 @@ class InputOutput(Resource):
 
         if not os.path.exists(file):
             # TODO Nelly: check also the file extension?
-            log.error("%s is not a file path.", file)
+            main_logger.error("%s is not a file path.", file)
             self.file = ""
         else:
             self.file = file
         self.type = type
         if get_datetime_from_str(str_value=date) is None:
-            log.error("%s is not a date", date)
+            main_logger.error("%s is not a date", date)
             self.date = ""
         else:
             self.date = date
