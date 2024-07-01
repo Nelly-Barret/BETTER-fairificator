@@ -1,15 +1,15 @@
 import traceback
 
-from config.BetterConfig import BetterConfig
 from database.Database import Database
+from database.Execution import Execution
 from utils.TableNames import TableNames
 from utils.setup_logger import log
 
 
 class Load:
-    def __init__(self, database: Database, config: BetterConfig, create_indexes: bool):
+    def __init__(self, database: Database, execution: Execution, create_indexes: bool):
         self.database = database
-        self.config = config
+        self.execution = execution
         self.create_indexes = create_indexes
 
     def run(self) -> None:
@@ -23,7 +23,7 @@ class Load:
         self.database.load_json_in_table(table_name=TableNames.SAMPLE.value, unique_variables=["identifier"])
 
         # if everything has been loaded, we can create indexes
-        if self.create_indexes and not self.config.get_no_index():
+        if self.create_indexes and not self.execution.get_no_index():
             self.create_db_indexes()
 
     def create_db_indexes(self) -> None:
